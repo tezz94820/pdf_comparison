@@ -1,0 +1,25 @@
+{
+  "timestamp": "2025-10-14 17:25:10",
+  "dev_file": "excel2.xlsx",
+  "prod_file": "excel1.xlsx",
+  "dev_size": 54849,
+  "prod_size": 54849,
+  "similarity_percent": 100.0,
+  "difference_percent": 0.0,
+  "total_sheets": {
+    "dev": 1,
+    "prod": 1,
+    "max": 1
+  },
+  "changes": {
+    "added": 0,
+    "removed": 0,
+    "modified": 0,
+    "unchanged": 306
+  },
+  "cells": {
+    "dev": 5320,
+    "prod": 5320,
+    "diff": 0
+  }
+}

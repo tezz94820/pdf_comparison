@@ -1,6 +1,6 @@
 """
-Master Summary Report Generator
-Combines all individual PDF comparison reports into a single summary
+Master Summary Report Generator for Excel Comparisons
+Combines all individual Excel comparison reports into a single summary
 Can be run independently or called from main comparison script
 """
 
@@ -11,8 +11,8 @@ from typing import List, Dict
 from html import escape
 
 
-class SummaryGenerator:
-    """Generate master summary from all comparison reports."""
+class ExcelSummaryGenerator:
+    """Generate master summary from all Excel comparison reports."""
     
     def __init__(self, reports_dir: str = "reports"):
         self.reports_dir = Path(reports_dir)
@@ -68,11 +68,11 @@ class SummaryGenerator:
         medium_similarity = sum(1 for a in self.analytics_data if 70 <= a['similarity_percent'] < 90)
         low_similarity = sum(1 for a in self.analytics_data if a['similarity_percent'] < 70)
         
-        total_pages_dev = sum(a['total_pages']['dev'] for a in self.analytics_data)
-        total_pages_prod = sum(a['total_pages']['prod'] for a in self.analytics_data)
+        total_sheets_dev = sum(a['total_sheets']['dev'] for a in self.analytics_data)
+        total_sheets_prod = sum(a['total_sheets']['prod'] for a in self.analytics_data)
         
-        total_chars_dev = sum(a['characters']['dev'] for a in self.analytics_data)
-        total_chars_prod = sum(a['characters']['prod'] for a in self.analytics_data)
+        total_cells_dev = sum(a['cells']['dev'] for a in self.analytics_data)
+        total_cells_prod = sum(a['cells']['prod'] for a in self.analytics_data)
         
         # Find files with most changes
         most_changes = sorted(self.analytics_data, 
@@ -100,13 +100,13 @@ class SummaryGenerator:
                 'medium': medium_similarity,
                 'low': low_similarity
             },
-            'pages': {
-                'dev': total_pages_dev,
-                'prod': total_pages_prod
+            'sheets': {
+                'dev': total_sheets_dev,
+                'prod': total_sheets_prod
             },
-            'characters': {
-                'dev': total_chars_dev,
-                'prod': total_chars_prod
+            'cells': {
+                'dev': total_cells_dev,
+                'prod': total_cells_prod
             },
             'top_changed_files': most_changes,
             'least_similar_files': least_similar
@@ -120,7 +120,7 @@ class SummaryGenerator:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master Summary Report - {stats['timestamp']}</title>
+    <title>Master Excel Summary Report - {stats['timestamp']}</title>
     <style>
         * {{
             margin: 0;
@@ -130,7 +130,7 @@ class SummaryGenerator:
         
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
             padding: 20px;
             color: #333;
             min-height: 100vh;
@@ -147,7 +147,7 @@ class SummaryGenerator:
         }}
         
         .header {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
             color: white;
             padding: 50px 40px;
             text-align: center;
@@ -189,7 +189,7 @@ class SummaryGenerator:
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            border-left: 4px solid #667eea;
+            border-left: 4px solid #2ecc71;
             transition: transform 0.2s;
         }}
         
@@ -209,7 +209,7 @@ class SummaryGenerator:
         .stat-value {{
             font-size: 2.5em;
             font-weight: 700;
-            color: #667eea;
+            color: #2ecc71;
         }}
         
         .stat-subvalue {{
@@ -227,7 +227,7 @@ class SummaryGenerator:
         }}
         
         .similarity-breakdown h3 {{
-            color: #667eea;
+            color: #2ecc71;
             margin-bottom: 20px;
             font-size: 1.5em;
         }}
@@ -273,7 +273,7 @@ class SummaryGenerator:
             min-width: 50px;
             text-align: right;
             font-weight: 600;
-            color: #667eea;
+            color: #2ecc71;
         }}
         
         .files-table {{
@@ -286,7 +286,7 @@ class SummaryGenerator:
         }}
         
         .files-table h3 {{
-            color: #667eea;
+            color: #2ecc71;
             margin-bottom: 20px;
             font-size: 1.5em;
         }}
@@ -297,7 +297,7 @@ class SummaryGenerator:
         }}
         
         thead {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
             color: white;
         }}
         
@@ -322,7 +322,7 @@ class SummaryGenerator:
         }}
         
         .file-link {{
-            color: #667eea;
+            color: #2ecc71;
             text-decoration: none;
             font-weight: 500;
             display: flex;
@@ -355,11 +355,6 @@ class SummaryGenerator:
         .badge-danger {{
             background: #f8d7da;
             color: #721c24;
-        }}
-        
-        .badge-info {{
-            background: #d1ecf1;
-            color: #0c5460;
         }}
         
         .change-indicator {{
@@ -399,8 +394,8 @@ class SummaryGenerator:
 <body>
     <div class="main-container">
         <div class="header">
-            <h1>📊 Master Summary Report</h1>
-            <div class="subtitle">Batch PDF Comparison Analysis • {stats['timestamp']}</div>
+            <h1>📊 Master Excel Summary Report</h1>
+            <div class="subtitle">Batch Excel Comparison Analysis • {stats['timestamp']}</div>
         </div>
         
         <div class="summary-dashboard">
@@ -410,7 +405,7 @@ class SummaryGenerator:
                 <div class="stat-card">
                     <div class="stat-label">Total Files Compared</div>
                     <div class="stat-value">{stats['total_files']}</div>
-                    <div class="stat-subvalue">PDF pairs analyzed</div>
+                    <div class="stat-subvalue">Excel pairs analyzed</div>
                 </div>
                 
                 <div class="stat-card">
@@ -422,37 +417,37 @@ class SummaryGenerator:
                 <div class="stat-card">
                     <div class="stat-label">Total Changes</div>
                     <div class="stat-value" style="color: #ffc107;">{stats['aggregate_changes']['total']:,}</div>
-                    <div class="stat-subvalue">Lines modified in total</div>
+                    <div class="stat-subvalue">Rows modified in total</div>
                 </div>
                 
                 <div class="stat-card">
-                    <div class="stat-label">Lines Added</div>
+                    <div class="stat-label">Rows Added</div>
                     <div class="stat-value" style="color: #28a745;">{stats['aggregate_changes']['added']:,}</div>
                     <div class="stat-subvalue">New content</div>
                 </div>
                 
                 <div class="stat-card">
-                    <div class="stat-label">Lines Removed</div>
+                    <div class="stat-label">Rows Removed</div>
                     <div class="stat-value" style="color: #dc3545;">{stats['aggregate_changes']['removed']:,}</div>
                     <div class="stat-subvalue">Deleted content</div>
                 </div>
                 
                 <div class="stat-card">
-                    <div class="stat-label">Lines Modified</div>
+                    <div class="stat-label">Rows Modified</div>
                     <div class="stat-value" style="color: #17a2b8;">{stats['aggregate_changes']['modified']:,}</div>
                     <div class="stat-subvalue">Changed content</div>
                 </div>
                 
                 <div class="stat-card">
-                    <div class="stat-label">Total Pages (Dev)</div>
-                    <div class="stat-value" style="color: #6c757d;">{stats['pages']['dev']:,}</div>
-                    <div class="stat-subvalue">All dev PDFs combined</div>
+                    <div class="stat-label">Total Sheets (Dev)</div>
+                    <div class="stat-value" style="color: #6c757d;">{stats['sheets']['dev']:,}</div>
+                    <div class="stat-subvalue">All dev files combined</div>
                 </div>
                 
                 <div class="stat-card">
-                    <div class="stat-label">Total Pages (Prod)</div>
-                    <div class="stat-value" style="color: #6c757d;">{stats['pages']['prod']:,}</div>
-                    <div class="stat-subvalue">All prod PDFs combined</div>
+                    <div class="stat-label">Total Sheets (Prod)</div>
+                    <div class="stat-value" style="color: #6c757d;">{stats['sheets']['prod']:,}</div>
+                    <div class="stat-subvalue">All prod files combined</div>
                 </div>
             </div>
             
@@ -556,7 +551,7 @@ class SummaryGenerator:
                         <tr>
                             <th>Filename</th>
                             <th>Similarity</th>
-                            <th>Pages (Dev/Prod)</th>
+                            <th>Sheets (Dev/Prod)</th>
                             <th>Added</th>
                             <th>Removed</th>
                             <th>Modified</th>
@@ -581,7 +576,7 @@ class SummaryGenerator:
                                 </div>
                             </td>
                             <td><span class="badge {similarity_badge}">{file_data['similarity_percent']}%</span></td>
-                            <td>{file_data['total_pages']['dev']} / {file_data['total_pages']['prod']}</td>
+                            <td>{file_data['total_sheets']['dev']} / {file_data['total_sheets']['prod']}</td>
                             <td><span class="change-indicator change-added">+{file_data['changes']['added']}</span></td>
                             <td><span class="change-indicator change-removed">-{file_data['changes']['removed']}</span></td>
                             <td><span class="change-indicator change-modified">~{file_data['changes']['modified']}</span></td>
@@ -600,7 +595,7 @@ class SummaryGenerator:
                         <tr>
                             <th>Filename</th>
                             <th>Similarity</th>
-                            <th>Pages</th>
+                            <th>Sheets</th>
                             <th>Changes</th>
                             <th>Report</th>
                         </tr>
@@ -630,7 +625,7 @@ class SummaryGenerator:
                                 </div>
                             </td>
                             <td><span class="badge {similarity_badge}">{file_data['similarity_percent']}%</span></td>
-                            <td>{file_data['total_pages']['dev']} / {file_data['total_pages']['prod']}</td>
+                            <td>{file_data['total_sheets']['dev']} / {file_data['total_sheets']['prod']}</td>
                             <td>
                                 <span class="change-indicator change-added">+{file_data['changes']['added']}</span>
                                 <span class="change-indicator change-removed">-{file_data['changes']['removed']}</span>
@@ -654,7 +649,7 @@ class SummaryGenerator:
         """Generate master summary report."""
         
         print("\n" + "="*80)
-        print("📊 GENERATING MASTER SUMMARY REPORT")
+        print("📊 GENERATING MASTER EXCEL SUMMARY REPORT")
         print("="*80 + "\n")
         
         analytics = self.load_analytics()
@@ -670,12 +665,12 @@ class SummaryGenerator:
         html = self.generate_summary_html(stats)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = self.reports_dir / f"MASTER_SUMMARY_{timestamp}.html"
+        output_path = self.reports_dir / f"MASTER_EXCEL_SUMMARY_{timestamp}.html"
         
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(html)
         
-        print(f"\n✅ Master summary report generated!")
+        print(f"\n✅ Master Excel summary report generated!")
         print(f"📁 Location: {output_path.absolute()}")
         print(f"\n📊 Summary Statistics:")
         print(f"   • Total files compared: {stats['total_files']}")
@@ -693,10 +688,10 @@ def main():
     """Main entry point for standalone summary generation."""
     
     print("="*80)
-    print("🚀 MASTER SUMMARY REPORT GENERATOR")
+    print("🚀 MASTER EXCEL SUMMARY REPORT GENERATOR")
     print("="*80)
     
-    generator = SummaryGenerator(reports_dir="reports")
+    generator = ExcelSummaryGenerator(reports_dir="reports")
     summary_path = generator.generate_summary()
     
     if summary_path:

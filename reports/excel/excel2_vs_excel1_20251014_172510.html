@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Comparison Report - excel2.xlsx vs excel1.xlsx</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            padding: 20px;
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .main-container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            margin-bottom: 40px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .header .subtitle {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+        
+        .analytics-dashboard {
+            padding: 40px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-left: 4px solid #2ecc71;
+            transition: transform 0.2s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .metric-label {
+            font-size: 0.9em;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .metric-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #2ecc71;
+        }
+        
+        .metric-subvalue {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        
+        .similarity-bar {
+            width: 100%;
+            height: 40px;
+            background: #e9ecef;
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+            margin: 20px 0;
+        }
+        
+        .similarity-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            transition: width 1s ease;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        
+        .legend-added { background: #d4edda; }
+        .legend-removed { background: #f8d7da; }
+        .legend-changed { background: #fff3cd; }
+        
+        .file-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .file-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .file-card h3 {
+            color: #2ecc71;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .file-detail {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .file-detail:last-child {
+            border-bottom: none;
+        }
+        
+        .file-label {
+            color: #6c757d;
+        }
+        
+        .file-value {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .sheet-navigation {
+            padding: 30px 40px 20px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+        
+        .sheet-tabs {
+            display: inline-flex;
+            gap: 10px;
+        }
+        
+        .sheet-tab {
+            padding: 12px 24px;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            color: #333;
+        }
+        
+        .sheet-tab:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+        
+        .sheet-tab.active {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+            border-color: #2ecc71;
+        }
+        
+        .sheets-container {
+            padding: 40px;
+            background: #f8f9fa;
+        }
+        
+        .sheet-comparison {
+            display: none;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border: 2px solid #e9ecef;
+        }
+        
+        .sheet-comparison.active {
+            display: block;
+        }
+        
+        .sheet-header {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+            padding: 20px 30px;
+            font-size: 1.3em;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .sheet-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+        }
+        
+        .sheet-column {
+            padding: 30px;
+            background: #ffffff;
+        }
+        
+        .sheet-column:first-child {
+            border-right: 2px solid #e9ecef;
+            background: #fafbfc;
+        }
+        
+        .sheet-column h3 {
+            color: #2ecc71;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #2ecc71;
+            position: sticky;
+            top: 0;
+            background: inherit;
+            z-index: 5;
+        }
+        
+        .content {
+            font-family: 'Courier New', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .line {
+            padding: 6px 10px;
+            margin: 2px 0;
+            border-radius: 4px;
+            transition: all 0.15s;
+        }
+        
+        .line:hover {
+            opacity: 0.85;
+        }
+        
+        .added {
+            background-color: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+            padding-left: 12px;
+        }
+        
+        .removed {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+            padding-left: 12px;
+        }
+        
+        .changed {
+            background-color: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+            padding-left: 12px;
+        }
+        
+        .empty-sheet {
+            color: #6c757d;
+            font-style: italic;
+            padding: 40px 20px;
+            text-align: center;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px dashed #dee2e6;
+        }
+        
+        @media (max-width: 1200px) {
+            .sheet-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .sheet-column:first-child {
+                border-right: none;
+                border-bottom: 2px solid #e9ecef;
+            }
+            
+            .analytics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <h1>📊 Excel Comparison Report</h1>
+            <div class="subtitle">excel2.xlsx vs excel1.xlsx • 2025-10-14 17:25:10</div>
+        </div>
+        
+        <div class="analytics-dashboard">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #333; font-size: 1.8em;">
+                📈 Analytics Dashboard
+            </h2>
+            
+            <div class="analytics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Similarity Score</div>
+                    <div class="metric-value">100.0%</div>
+                    <div class="metric-subvalue">0.0% different</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-label">Total Sheets</div>
+                    <div class="metric-value" style="color: #6c757d;">1</div>
+                    <div class="metric-subvalue">Dev: 1 | Prod: 1</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-label">Rows Added</div>
+                    <div class="metric-value" style="color: #28a745;">0</div>
+                    <div class="metric-subvalue">New content in Prod</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-label">Rows Removed</div>
+                    <div class="metric-value" style="color: #dc3545;">0</div>
+                    <div class="metric-subvalue">Removed from Dev</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-label">Rows Modified</div>
+                    <div class="metric-value" style="color: #ffc107;">0</div>
+                    <div class="metric-subvalue">Content changes</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-label">Cells (Dev)</div>
+                    <div class="metric-value" style="color: #17a2b8;">5,320</div>
+                    <div class="metric-subvalue">Approximate count</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-label">Cells (Prod)</div>
+                    <div class="metric-value" style="color: #17a2b8;">5,320</div>
+                    <div class="metric-subvalue">Approximate count</div>
+                </div>
+            </div>
+            
+            <div class="similarity-bar">
+                <div class="similarity-fill" style="width: 100.0%">
+                    100.0% Match
+                </div>
+            </div>
+            
+            <div class="file-info">
+                <div class="file-card">
+                    <h3>📄 Dev Excel</h3>
+                    <div class="file-detail">
+                        <span class="file-label">Filename:</span>
+                        <span class="file-value">excel2.xlsx</span>
+                    </div>
+                    <div class="file-detail">
+                        <span class="file-label">File Size:</span>
+                        <span class="file-value">53.56 KB</span>
+                    </div>
+                    <div class="file-detail">
+                        <span class="file-label">Sheets:</span>
+                        <span class="file-value">1</span>
+                    </div>
+                </div>
+                
+                <div class="file-card">
+                    <h3>📄 Prod Excel</h3>
+                    <div class="file-detail">
+                        <span class="file-label">Filename:</span>
+                        <span class="file-value">excel1.xlsx</span>
+                    </div>
+                    <div class="file-detail">
+                        <span class="file-label">File Size:</span>
+                        <span class="file-value">53.56 KB</span>
+                    </div>
+                    <div class="file-detail">
+                        <span class="file-label">Sheets:</span>
+                        <span class="file-value">1</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color legend-added"></div>
+                    <span><strong>Added:</strong> 0 rows</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color legend-removed"></div>
+                    <span><strong>Removed:</strong> 0 rows</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color legend-changed"></div>
+                    <span><strong>Modified:</strong> 0 rows</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sheet-navigation">
+            <h3 style="margin-bottom: 15px; color: #333;">📑 Sheet Navigation</h3>
+            <div class="sheet-tabs">
+                <button class="sheet-tab active" onclick="showSheet(0)">Sheet</button>
+            </div>
+        </div>
+        
+        <div class="sheets-container">
+            <div class="sheet-comparison active" id="sheet-0">
+                <div class="sheet-header">
+                    📑 Sheet
+                </div>
+                <div class="sheet-content">
+                    <div class="sheet-column">
+                        <h3>Dev Excel</h3>
+                        <div class="content"><div class="line">	Innofin Solutions Private Limited</div><div class="line">Manual Lending Report</div><div class="line">Lender Name	TEJAS RAJESH ITANKAR		Total Illustrative Receivable	The total amount expected from the borrower inclusive of fees</div><div class="line">Lender ID	ZDDIZGE0VZ		Total Amount Received	Total amount received after deduction of fees</div><div class="line">Lending Type	Manual Lending</div><div class="line">From Date	06/04/2025</div><div class="line">To Date	05/10/2025</div><div class="line">Total Lent	₹146250</div><div class="line">Total Received	₹107739.42</div><div class="line">Total Cancelled/Rejected Loan Amount	₹500</div><div class="line">Total Refunded Amount	₹500</div><div class="line">Report Summary</div><div class="line">Loan ID	Lending Date	Disbursement Date	Lending Amount (₹)	Interest Rate (%)	Repayment Start Date	Tenure (months)	Repayment Type	Principal Received (₹)	Interest Received (₹)	Fee Charges Deducted (₹)	Profit &amp; Loss (₹)	Total Amount Received (₹)	Total Illustrative Receivable (₹)	Refunded Amount (₹)	Status	DPD (days past due)	NPA</div><div class="line">z	09/08/2025	10/08/2025	500	47.4	01/09/2025	3	Monthly	13.79	18.07	0.14	0	31.87	555.3	0	ACTIVE	34	0</div><div class="line">LOA-SAJVAAFJ	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	0	0	0	0	0	556.61	0	ACTIVE	34	0</div><div class="line">LOA-DK6QCHJ8	10/07/2025	11/07/2025	500	35.88	01/08/2025	2	Monthly	500	21.03	5	0	521.03	526.41	0	ACTIVE	34	0</div><div class="line">LOA-U5EE5QZA	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	16.98	1.67	0	183.65	555.95	0	ACTIVE	0	0</div><div class="line">LOA-9DG8KT18	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	16.98	1.67	0	183.65	555.96	0	ACTIVE	0	0</div><div class="line">LOA-CTSB78VQ	07/09/2025	07/09/2025	500	46.2	01/10/2025	3	Monthly	333.36	33.03	3.33	0	366.39	554.54	0	ACTIVE	0	0</div><div class="line">LOA-JYUN1MY7	07/09/2025	07/09/2025	500	47.76	01/10/2025	3	Monthly	166.67	17.12	1.67	0	183.8	556.38	0	ACTIVE	0	0</div><div class="line">LOA-RYEJMQUS	07/09/2025	07/09/2025	500	48	01/10/2025	3	Monthly	166.67	17.22	1.67	0	183.89	556.67	0	ACTIVE	0	0</div><div class="line">LOA-5332DBXY	07/09/2025	07/09/2025	500	46.8	01/10/2025	3	Monthly	166.67	16.75	1.67	0	183.42	555.25	0	ACTIVE	0	0</div><div class="line">LOA-6A89AVBL	07/09/2025	07/09/2025	500	46.8	01/10/2025	3	Monthly	166.67	16.75	1.67	0	183.42	555.25	0	ACTIVE	0	0</div><div class="line">LOA-YT9CXDZ2	07/09/2025	07/09/2025	500	46.8	01/10/2025	3	Monthly	166.67	16.75	1.67	0	183.42	555.25	0	ACTIVE	0	0</div><div class="line">LOA-LSFJZT47	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	16.98	1.67	0	183.65	555.95	0	ACTIVE	0	0</div><div class="line">LOA-DZJ89VD1	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	16.98	1.67	0	183.65	555.95	0	ACTIVE	0	0</div><div class="line">LOA-D13Q8Y5N	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	16.98	1.67	0	183.65	555.95	0	ACTIVE	0	0</div><div class="line">LOA-5DMU389H	07/09/2025	07/09/2025	500	46.8	01/10/2025	3	Monthly	166.67	16.75	1.67	0	183.42	555.25	0	ACTIVE	0	0</div><div class="line">LOA-LZM44B4U	07/09/2025	07/09/2025	500	46.8	01/10/2025	3	Monthly	500	50.25	5	50.25	550.25	555.25	0	CLOSED	0	0</div><div class="line">LOA-JULM56ZP	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	16.98	1.67	0	183.65	555.96	0	ACTIVE	0	0</div><div class="line">LOA-5UQEAFG5	07/09/2025	07/09/2025	500	48	01/10/2025	3	Monthly	166.67	17.22	1.67	0	183.89	556.66	0	ACTIVE	0	0</div><div class="line">LOA-4GHYK2VB	07/09/2025	07/09/2025	500	46.8	01/10/2025	3	Monthly	166.67	16.75	1.67	0	183.42	555.24	0	ACTIVE	0	0</div><div class="line">LOA-AAVJ54ZA	07/09/2025	07/09/2025	250	46.8	01/10/2025	3	Monthly	83.33	8.38	0.83	0	91.71	277.62	0	ACTIVE	0	0</div><div class="line">LOA-YQHPYG9M	07/09/2025	07/09/2025	500	45.6	01/10/2025	3	Monthly	166.67	16.27	1.67	0	182.94	553.83	0	ACTIVE	0	0</div><div class="line">LOA-RPX2FAJG	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	0	0	0	0	0	555.96	0	ACTIVE	4	0</div><div class="line">LOA-2Y2C7Q6P	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	16.98	1.67	0	183.65	555.95	0	ACTIVE	0	0</div><div class="line">LOA-5GQQKSTL	03/09/2025	03/09/2025	500	48	01/10/2025	3	Monthly	500	54.34	5	54.33	554.33	559.33	0	CLOSED	0	0</div><div class="line">LOA-G7YZYN1S	03/09/2025	03/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	17.86	1.67	0	184.53	558.59	0	ACTIVE	0	0</div><div class="line">LOA-G52N8GXX	03/09/2025	03/09/2025	500	48	01/10/2025	3	Monthly	0	0	0	0	0	560	0	ACTIVE	4	0</div><div class="line">LOA-FYJ1ZEPA	03/09/2025	03/09/2025	500	48	01/10/2025	3	Monthly	166.67	18.11	1.67	0	184.78	559.33	0	ACTIVE	0	0</div><div class="line">LOA-FS39QSYH	03/09/2025	03/09/2025	500	48	01/10/2025	3	Monthly	166.67	18.11	1.67	0	184.78	560	0	ACTIVE	0	0</div><div class="line">LOA-EKZ2QVMX	03/09/2025	03/09/2025	500	46.8	01/10/2025	3	Monthly	166.67	17.61	1.67	0	184.28	558.5	0	ACTIVE	0	0</div><div class="line">LOA-A3TMLKFN	03/09/2025	03/09/2025	500	46.8	01/10/2025	3	Monthly	166.67	18.05	1.67	0	184.72	558.49	0	ACTIVE	0	0</div><div class="line">LOA-A12V4DC3	03/09/2025	03/09/2025	500	48	01/10/2025	3	Monthly	500	54.33	5	54.33	554.33	559.33	0	CLOSED	0	0</div><div class="line">LOA-89YTN7B6	03/09/2025	03/09/2025	500	48	01/10/2025	3	Monthly	0	0	0	0	0	559.33	0	ACTIVE	0	0</div><div class="line">LOA-2KDPKR1E	03/09/2025	03/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	17.86	1.67	0	184.53	558.59	0	ACTIVE	0	0</div><div class="line">LOA-GRN39L7Q	30/08/2025	30/08/2025	500	46.8	01/10/2025	3	Monthly	0	0	0	0	0	560.44	0	ACTIVE	4	0</div><div class="line">LOA-7X29M6QC	30/08/2025	30/08/2025	500	46.8	01/10/2025	3	Monthly	166.67	18.48	1.67	0	185.15	560.44	0	ACTIVE	0	0</div><div class="line">LOA-77UPQ42V	30/08/2025	31/08/2025	500	47.4	01/10/2025	3	Monthly	333.33	37.05	3.33	0	370.38	561.22	0	ACTIVE	0	0</div><div class="line">LOA-4M8X5FVM	30/08/2025	30/08/2025	500	46.8	01/10/2025	3	Monthly	166.67	18.48	1.67	0	185.15	560.44	0	ACTIVE	0	0</div><div class="line">LOA-YLVP4934	30/08/2025	30/08/2025	500	47.4	01/10/2025	3	Monthly	166.67	18.74	1.67	0	185.41	561.22	0	ACTIVE	0	0</div><div class="line">LOA-UFVTRVMX	30/08/2025	30/08/2025	500	46.8	01/10/2025	3	Monthly	166.67	18.48	1.67	0	185.15	560.45	0	ACTIVE	0	0</div><div class="line">LOA-AEARAPDL	30/08/2025	30/08/2025	500	46.8	01/10/2025	3	Monthly	166.67	18.48	1.67	0	185.15	560.45	0	ACTIVE	0	0</div><div class="line">LOA-9EK4KGHD	30/08/2025	30/08/2025	500	48	01/10/2025	3	Monthly	0	0	0	0	0	562	0	ACTIVE	4	0</div><div class="line">LOA-6BNJT8F6	30/08/2025	30/08/2025	500	48	01/10/2025	3	Monthly	166.67	19	1.67	0	185.67	562	0	ACTIVE	0	0</div><div class="line">LOA-E4U627AF	27/08/2025	27/08/2025	500	46.8	01/10/2025	3	Monthly	166.67	19.13	1.67	0	185.8	562.4	0	ACTIVE	0	0</div><div class="line">LOA-E2XGV9H3	27/08/2025	27/08/2025	500	46.8	01/10/2025	3	Monthly	500	57.4	5	57.4	557.4	562.4	0	CLOSED	0	0</div><div class="line">LOA-ZC6YQFBN	27/08/2025	27/08/2025	500	47.4	01/10/2025	3	Monthly	166.67	19.4	1.67	0	186.07	563.2	0	ACTIVE	0	0</div><div class="line">LOA-TCYUSGZP	27/08/2025	27/08/2025	500	46.8	01/10/2025	3	Monthly	0	0	0	0	0	562.4	0	ACTIVE	4	0</div><div class="line">LOA-Q48HFPXM	27/08/2025	27/08/2025	500	46.8	01/10/2025	3	Monthly	500	57.4	5	57.4	557.4	562.4	0	CLOSED	0	0</div><div class="line">LOA-GZNZAL6H	27/08/2025	27/08/2025	500	47.76	01/10/2025	3	Monthly	166.67	19.56	1.67	0	186.23	563.68	0	ACTIVE	0	0</div><div class="line">LOAEPF845BZSKZL1KC	21/08/2025	21/08/2025	500	46.8	01/10/2025	3	Monthly	500	57.08	1.25	57.09	557.09	547.45	0	CLOSED	0	0</div><div class="line">LOA-B8JFXDJE	21/08/2025	21/08/2025	500	48	01/10/2025	3	Monthly	166.67	21	1.67	0	187.67	568	0	ACTIVE	0	0</div><div class="line">LOA-3T73UZXT	21/08/2025	21/08/2025	500	46.2	01/10/2025	3	Monthly	166.67	20.15	1.67	0	186.82	565.45	0	ACTIVE	0	0</div><div class="line">LOA-2LD1J4GR	19/08/2025	19/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	28.74	3.33	0	362.07	548.1	0	ACTIVE	0	0</div><div class="line">LOA-S24KGMBF	19/08/2025	19/08/2025	500	45.6	01/09/2025	3	Monthly	500	41.87	5	41.87	541.87	546.86	0	CLOSED	0	0</div><div class="line">LOA-C3RX3UPM	19/08/2025	19/08/2025	500	45.6	01/09/2025	3	Monthly	333.34	27.91	3.34	0	361.25	546.86	0	ACTIVE	0	0</div><div class="line">LOA-J71KJK82	18/08/2025	18/08/2025	500	45.6	01/09/2025	3	Monthly	333.33	31.59	3.33	0	364.91	547.5	0	ACTIVE	0	0</div><div class="line">LOA-BATE5XDQ	18/08/2025	18/08/2025	500	35.88	01/09/2025	3	Monthly	166.67	11.33	1.67	0	178	537.37	0	ACTIVE	4	0</div><div class="line">LOA-161L8JZK	15/08/2025	16/08/2025	500	45.6	01/09/2025	3	Monthly	333.38	29.18	3.33	0	362.56	549.4	0	ACTIVE	0	0</div><div class="line">LOA-2VUVEQSA	15/08/2025	16/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.04	3.33	0	363.37	550.7	0	ACTIVE	0	0</div><div class="line">LOA-GV5U272E	15/08/2025	16/08/2025	500	45.6	01/09/2025	3	Monthly	333.33	29.18	3.33	0	362.51	549.4	0	ACTIVE	0	0</div><div class="line">LOA-YSM8PYPM	15/08/2025	16/08/2025	500	46.8	01/09/2025	3	Monthly	500	45.05	5	45.05	545.05	550.7	0	CLOSED	0	0</div><div class="line">LOA-R4RY1AZP	15/08/2025	16/08/2025	500	47.4	01/09/2025	3	Monthly	333.34	31.67	3.33	0	365.01	551.35	0	ACTIVE	0	0</div><div class="line">LOA-9YKXNJ2P	15/08/2025	16/08/2025	500	45.6	01/09/2025	3	Monthly	333.33	29.18	3.33	0	362.51	549.4	0	ACTIVE	0	0</div><div class="line">LOA-XQB4V7SY	15/08/2025	16/08/2025	500	36	01/09/2025	3	Monthly	333.33	22.88	3.33	0	356.21	539	0	ACTIVE	0	0</div><div class="line">LOAEPF9AZQP85RAALN	15/08/2025	16/08/2025	500	45	01/09/2025	3	Monthly	500	46.88	1.25	46.88	546.88	548.75	0	CLOSED	0	0</div><div class="line">LOA-JHLU9439	15/08/2025	15/08/2025	1000	47.76	01/09/2025	3	Monthly	333.33	37.52	3.33	0	370.85	1103.48	0	ACTIVE	4	0</div><div class="line">LOA-5J8CET27	15/08/2025	15/08/2025	1000	47.4	01/09/2025	3	Monthly	333.34	30.91	3.33	0	364.24	1102.7	0	ACTIVE	4	0</div><div class="line">LOA-F8LGHQG4	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.47	3.33	0	363.8	550.7	0	ACTIVE	0	0</div><div class="line">LOA-C41JPR2F	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	500	46.35	5	46.35	546.35	551.35	0	CLOSED	0	0</div><div class="line">LOA-CLQXLBHX	15/08/2025	15/08/2025	500	48	01/09/2025	3	Monthly	500	47	5	47	547	552	0	CLOSED	0	0</div><div class="line">LOA-ZRHA157D	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.47	3.33	0	363.8	550.7	0	ACTIVE	0	0</div><div class="line">LOA-DGY7L3FV	15/08/2025	15/08/2025	500	46.2	01/09/2025	3	Monthly	333.34	30.51	3.33	0	363.84	550.05	0	ACTIVE	0	0</div><div class="line">LOA-MABR8PP5	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	500	41.73	5	41.73	541.73	551.35	0	CLOSED	0	0</div><div class="line">LOA-A8VAVZQC	15/08/2025	15/08/2025	500	45.6	01/09/2025	3	Monthly	500	41.68	5	41.68	541.68	549.4	0	CLOSED	0	0</div><div class="line">LOA-ZU33XQH9	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	333.37	30.9	3.33	0	364.27	551.35	0	ACTIVE	0	0</div><div class="line">LOA-SKUZXR7L	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	30.91	3.33	0	364.23	551.35	0	ACTIVE	0	0</div><div class="line">LOA-PU26HJ77	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	30.9	3.33	0	364.23	551.35	0	ACTIVE	0	0</div><div class="line">LOA-GMBE2EYV	15/08/2025	15/08/2025	500	45.6	01/09/2025	3	Monthly	500	44.4	5	44.4	544.4	549.4	0	CLOSED	0	0</div><div class="line">LOA-C7E7X21Y	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.47	3.33	0	363.8	550.7	0	ACTIVE	0	0</div><div class="line">LOA-P751X99R	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.34	30.47	3.33	0	363.8	550.7	0	ACTIVE	0	0</div><div class="line">LOA-AHK26QAN	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.47	3.33	0	363.8	550.7	0	ACTIVE	0	0</div><div class="line">LOA-GX138A1D	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	30.9	3.33	0	364.23	551.35	0	ACTIVE	0	0</div><div class="line">LOA-583Y3SFU	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	500	46.18	5	46.18	546.18	550.7	0	CLOSED	2	0</div><div class="line">LOA-6KMPCP3E	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.71	3.33	0	364.04	550.7	0	ACTIVE	0	0</div><div class="line">LOA-FLVCE5GZ	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.4	30.47	3.33	0	363.87	550.7	0	ACTIVE	0	0</div><div class="line">LOA-9C97HQHN	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	500	46.35	5	46.35	546.35	551.34	0	CLOSED	0	0</div><div class="line">LOA-3B8U1FS9	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.47	3.33	0	363.8	550.7	0	ACTIVE	0	0</div><div class="line">LOA-3T88PF9R	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	500	46.35	5	46.35	546.35	551.35	0	CLOSED	0	0</div><div class="line">LOA-KMTG18VK	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	30.9	3.33	0	364.23	551.35	0	ACTIVE	0	0</div><div class="line">LOA-UM2SXAMK	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.45	30.47	3.33	0	363.92	550.7	0	ACTIVE	0	0</div><div class="line">LOA-KTYQ16MC	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.47	3.33	0	363.8	550.7	0	ACTIVE	0	0</div><div class="line">LOAEPF1672V8897SYD	14/08/2025	14/08/2025	500	45.6	01/09/2025	3	Monthly	333.34	32.53	0.83	0	365.86	550.03	0	ACTIVE	0	0</div><div class="line">LOA-9Z2DPTVQ	14/08/2025	14/08/2025	500	47.4	01/09/2025	3	Monthly	333.4	31.34	3.33	0	364.73	552.01	0	ACTIVE	0	0</div><div class="line">LOA-M5HP8TRK	14/08/2025	14/08/2025	500	46.8	01/09/2025	3	Monthly	333.34	31.62	3.33	0	364.96	551.35	0	ACTIVE	0	0</div><div class="line">LOA-YDE42QJM	14/08/2025	14/08/2025	500	47.4	01/09/2025	3	Monthly	166.67	16.51	1.67	0	183.18	552	0	ACTIVE	4	0</div><div class="line">LOA-PUAUQBQY	14/08/2025	14/08/2025	500	46.8	01/09/2025	3	Monthly	333.34	32.24	3.33	0	365.57	551.35	0	ACTIVE	0	0</div><div class="line">LOA-PMRVSF65	14/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.47	3.33	0	363.8	551.35	0	ACTIVE	0	0</div><div class="line">LOA-CUTSHXL9	14/08/2025	15/08/2025	500	48	01/09/2025	3	Monthly	333.34	31.34	3.33	0	364.67	552.67	0	ACTIVE	0	0</div><div class="line">LOA-K8K21RQV	14/08/2025	14/08/2025	500	46.8	01/09/2025	3	Monthly	333.53	30.9	3.34	0	364.43	551.35	0	ACTIVE	0	0</div><div class="line">LOA-59LL93V4	14/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	333.37	32.11	3.33	0	365.48	552	0	ACTIVE	0	0</div><div class="line">LOA-CTS21SX1	14/08/2025	14/08/2025	500	48	01/09/2025	3	Monthly	333.34	32.51	3.34	0	365.85	552.66	0	ACTIVE	0	0</div><div class="line">LOA-HCLFGA9F	14/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.34	30.47	3.33	0	363.8	551.35	0	ACTIVE	0	0</div><div class="line">LOA-P3UGGGP3	14/08/2025	14/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.9	3.33	0	364.23	551.34	0	ACTIVE	0	0</div><div class="line">LOA-ZZZTAEHL	14/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	30.9	3.33	0	364.23	552	0	ACTIVE	0	0</div><div class="line">LOA-ZB4KUK7N	14/08/2025	14/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	30.9	3.33	0	364.23	552	0	ACTIVE	0	0</div><div class="line">LOA-H774ZQ8Q	14/08/2025	14/08/2025	500	46.8	01/09/2025	3	Monthly	500	46.35	5	46.35	546.35	551.35	0	CLOSED	0	0</div><div class="line">LOA-LD4RBHHN	14/08/2025	14/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	31.34	3.33	0	364.67	552.01	0	ACTIVE	0	0</div><div class="line">LOA-S87DLBGD	14/08/2025	14/08/2025	500	43.2	01/09/2025	3	Monthly	500	42.4	5	42.4	542.4	547.39	0	CLOSED	0	0</div><div class="line">LOA-ZKALERLK	14/08/2025	14/08/2025	500	46.2	01/09/2025	3	Monthly	333.34	30.94	3.33	0	364.27	550.69	0	ACTIVE	0	0</div><div class="line">LOA-9CPP9JUY	13/08/2025	14/08/2025	1000	36	01/09/2025	3	Monthly	666.66	46	6.67	0	712.66	1079.99	0	ACTIVE	0	0</div><div class="line">LOA-265Y1LMT	13/08/2025	14/08/2025	500	46.8	01/09/2025	3	Monthly	333.34	30.9	3.33	0	364.24	552	0	ACTIVE	0	0</div><div class="line">LOA-UTLME1M6	13/08/2025	14/08/2025	500	47.4	01/09/2025	3	Monthly	500	47.01	5	47.01	547.01	552.66	0	CLOSED	0	0</div><div class="line">LOA-2DS3VG2S	13/08/2025	14/08/2025	500	47.4	01/09/2025	3	Monthly	333.47	31.33	3.34	0	364.81	552.66	0	ACTIVE	0	0</div><div class="line">LOA-8YM9977J	13/08/2025	14/08/2025	500	48	01/09/2025	3	Monthly	166.72	18.59	1.67	0	185.31	553.33	0	ACTIVE	4	0</div><div class="line">LOAEPF28CENQ6BD0ZY	13/08/2025	14/08/2025	500	45	01/09/2025	3	Monthly	166.68	16.04	0.42	0	182.72	550	0	ACTIVE	4	0</div><div class="line">LOA-N52T2NLZ	13/08/2025	14/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.9	3.33	0	364.23	552	0	ACTIVE	0	0</div><div class="line">LOA-XQ4XGN3L	12/08/2025	12/08/2025	500	48	01/09/2025	3	Monthly	333.34	33.16	3.34	0	366.5	554	0	ACTIVE	0	0</div><div class="line">LOA-58REK8DG	12/08/2025	12/08/2025	500	48	01/09/2025	3	Monthly	500	49	5	49	549	554.66	0	CLOSED	0	0</div><div class="line">LOA-ZFFEQ75Q	12/08/2025	12/08/2025	500	47.4	01/09/2025	3	Monthly	166.67	16.11	1.67	0	182.77	553.98	0	ACTIVE	4	0</div><div class="line">LOA-ULYXFZQU	12/08/2025	12/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	32.71	3.33	0	366.04	553.98	0	ACTIVE	0	0</div><div class="line">LOA-BULNZMPB	12/08/2025	12/08/2025	500	48	01/09/2025	3	Monthly	333.33	33.41	3.33	0	366.74	554.66	0	ACTIVE	0	0</div><div class="line">LOA-G7XKL5S2	12/08/2025	12/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	31.77	3.33	0	365.1	553.3	0	ACTIVE	0	0</div><div class="line">LOA-AQRUEDX2	12/08/2025	12/08/2025	500	48	01/09/2025	3	Monthly	500	49	5	49	549	554.66	0	CLOSED	0	0</div><div class="line">LOA-JJNGJHGG	12/08/2025	12/08/2025	500	47.4	01/09/2025	3	Monthly	166.67	16.84	1.67	0	183.51	553.98	0	ACTIVE	4	0</div><div class="line">LOA-7U2FSQLX	12/08/2025	12/08/2025	500	43.2	01/09/2025	3	Monthly	333.33	29.07	3.33	0	362.4	549.19	0	ACTIVE	0	0</div><div class="line">LOA-X4XL9K5F	12/08/2025	12/08/2025	500	47.4	01/09/2025	3	Monthly	500	48.33	5	48.33	548.33	553.98	0	CLOSED	0	0</div><div class="line">LOA-QL11S7XM	12/08/2025	12/08/2025	500	46.8	01/09/2025	3	Monthly	500	47.65	5	47.65	547.65	553.3	0	CLOSED	0	0</div><div class="line">LOA-NDMYDASA	12/08/2025	12/08/2025	500	47.4	01/09/2025	3	Monthly	166.68	19.98	1.67	0	186.66	553.98	0	ACTIVE	4	0</div><div class="line">LOA-ZYAVR82E	12/08/2025	12/08/2025	500	45	01/09/2025	3	Monthly	500	45.63	5	45.62	545.62	551.24	0	CLOSED	0	0</div><div class="line">LOA-8TL7817S	12/08/2025	12/08/2025	500	46.8	01/09/2025	3	Monthly	166.71	18.04	1.67	0	184.75	553.3	0	ACTIVE	4	0</div><div class="line">LOA-RX4B726J	12/08/2025	12/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	32.22	3.33	0	365.55	553.98	0	ACTIVE	0	0</div><div class="line">LOA-7LJVAKMX	12/08/2025	12/08/2025	500	47.4	01/09/2025	3	Monthly	333.36	32.22	3.33	0	365.58	553.98	0	ACTIVE	0	0</div><div class="line">LOA-U24G2GVF	12/08/2025	12/08/2025	500	45	01/09/2025	3	Monthly	500	44.38	5	44.37	544.37	551.25	0	CLOSED	0	0</div><div class="line">LOA-VYDZDX1N	12/08/2025	12/08/2025	500	45.6	01/09/2025	3	Monthly	333.33	30.87	3.33	0	364.2	551.93	0	ACTIVE	0	0</div><div class="line">LOA-6UVCG2DY	12/08/2025	12/08/2025	500	47.76	01/09/2025	3	Monthly	333.46	32.49	3.33	0	365.95	554.39	0	ACTIVE	0	0</div><div class="line">LOAEPFU9DMCZQ48F3K	12/08/2025	12/08/2025	500	45	01/09/2025	3	Monthly	333.38	32.92	0.83	0	366.3	551.25	0	ACTIVE	0	0</div><div class="line">LOA-7CUB9824	12/08/2025	12/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	31.77	3.33	0	365.1	552.65	0	ACTIVE	0	0</div><div class="line">LOA-5JNJ4N2Q	10/08/2025	11/08/2025	500	45.6	01/09/2025	3	Monthly	333.33	31.29	3.33	0	364.62	552.56	0	ACTIVE	0	0</div><div class="line">LOA-3PYK3FZ2	10/08/2025	11/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	32.66	3.33	0	365.99	554.64	0	ACTIVE	0	0</div><div class="line">LOA-1J4YZHG6	10/08/2025	11/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	32.2	3.33	0	365.53	553.94	0	ACTIVE	0	0</div><div class="line">LOA-4Z68TRV9	10/08/2025	11/08/2025	500	47.4	01/09/2025	3	Monthly	500	48.98	5	48.99	548.99	554.64	0	CLOSED	0	0</div><div class="line">LOA-TFR95ESF	10/08/2025	11/08/2025	500	47.4	01/09/2025	3	Monthly	500	48.98	5	48.99	548.99	554.64	0	CLOSED	0	0</div><div class="line">LOA-2KFPUDNM	10/08/2025	11/08/2025	500	46.8	01/09/2025	3	Monthly	166.67	17.3	1.67	0	183.97	553.95	0	ACTIVE	4	0</div><div class="line">LOA-UZLDD75G	10/08/2025	11/08/2025	500	46.8	01/09/2025	3	Monthly	166.67	17.3	1.67	0	183.97	553.94	0	ACTIVE	4	0</div><div class="line">LOA-VV43GJDL	10/08/2025	11/08/2025	500	46.2	01/09/2025	3	Monthly	500	30.08	5	0	530.08	553.25	0	ACTIVE	0	0</div><div class="line">LOAEPF25GQEUS6UN3B	10/08/2025	11/08/2025	500	45	01/09/2025	3	Monthly	500	54.64	1.25	54.65	554.65	551.87	0	CLOSED	22	0</div><div class="line">LOA-APSNCVJ5	10/08/2025	11/08/2025	500	45.6	01/09/2025	3	Monthly	500	46.93	5	46.94	546.94	552.56	0	CLOSED	0	0</div><div class="line">LOA-BEQC3FS5	10/08/2025	11/08/2025	500	48	01/09/2025	3	Monthly	333.33	33.12	3.33	0	366.45	555.33	0	ACTIVE	0	0</div><div class="line">LOA-NYXUAC6B	10/08/2025	11/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	32.66	3.33	0	365.99	554.64	0	ACTIVE	0	0</div><div class="line">LOA-7NAEFJFC	10/08/2025	11/08/2025	500	48	01/09/2025	3	Monthly	500	31.44	5	0	531.44	555.33	0	ACTIVE	0	0</div><div class="line">LOA-NTT8813R	09/08/2025	10/08/2025	500	47.4	01/09/2025	3	Monthly	333.34	33.1	3.33	0	366.43	555.3	0	ACTIVE	0	0</div><div class="line">LOA-DG1TE679	09/08/2025	10/08/2025	500	47.4	01/09/2025	3	Monthly	333.47	33.33	3.34	0	366.81	555.3	0	ACTIVE	0	0</div><div class="line">LOA-CS2ZZH1T	09/08/2025	10/08/2025	500	47.4	01/09/2025	3	Monthly	333.34	33.1	3.33	0	366.43	555.3	0	ACTIVE	0	0</div><div class="line">LOA-G32XRKTT	09/08/2025	10/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.1	3.33	0	366.43	555.3	0	ACTIVE	0	0</div><div class="line">LOA-BN378L54	09/08/2025	10/08/2025	500	46.2	01/09/2025	3	Monthly	500	48.26	5	48.26	548.26	553.9	0	CLOSED	0	0</div><div class="line">LOA-GN6J2TC3	09/08/2025	10/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.1	3.33	0	366.43	555.3	0	ACTIVE	0	0</div><div class="line">LOA-L3PY7HD9	09/08/2025	09/08/2025	500	46.8	01/09/2025	2	Monthly	500	30.15	5	30.15	530.15	534.45	0	CLOSED	0	0</div><div class="line">LOA-3U4J2FV6	09/08/2025	09/08/2025	500	47.4	01/09/2025	2	Monthly	500	29.89	5	29.89	529.89	534.89	0	CLOSED	0	0</div><div class="line">LOA-H9CKSAJ7	09/08/2025	09/08/2025	500	46.8	01/09/2025	2	Monthly	500	29.45	5	29.45	529.45	534.45	0	CLOSED	0	0</div><div class="line">LOA-8479J63P	09/08/2025	09/08/2025	500	47.76	01/09/2025	2	Monthly	500	30.16	5	30.16	530.16	535.15	0	CLOSED	0	0</div><div class="line">LOA-TCNLMNCK	09/08/2025	09/08/2025	500	46.8	01/09/2025	2	Monthly	500	29.45	5	29.45	529.45	534.45	0	CLOSED	0	0</div><div class="line">LOA-16UQ6KRV	09/08/2025	09/08/2025	500	46.8	01/09/2025	2	Monthly	500	29.45	5	29.45	529.45	534.45	0	CLOSED	0	0</div><div class="line">LOA-6BZ1PBQR	09/08/2025	09/08/2025	500	46.2	01/09/2025	2	Monthly	500	29.01	5	29.01	529.01	534	0	CLOSED	0	0</div><div class="line">LOA-51TEVLXA	09/08/2025	09/08/2025	500	47.76	01/09/2025	2	Monthly	500	30.16	5	30.16	530.16	535.15	0	CLOSED	0	0</div><div class="line">LOA-UJJL3K3H	09/08/2025	09/08/2025	500	47.76	01/09/2025	3	Monthly	166.67	17.89	1.67	0	184.56	555.72	0	ACTIVE	4	0</div><div class="line">LOA-VK13SKQQ	09/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	33.07	3.33	0	366.4	554.59	0	ACTIVE	0	0</div><div class="line">LOA-7M96LLZK	09/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	500	0.65	0	0.65	500.65	554.6	0	CLOSED	0	0</div><div class="line">LOA-HHQY8R8K	09/08/2025	09/08/2025	500	35.88	01/09/2025	3	Monthly	500	35.41	5	35.41	535.41	541.86	0	CLOSED	0	0</div><div class="line">LOA-USER6QT5	09/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.54	3.33	0	366.87	555.3	0	ACTIVE	0	0</div><div class="line">LOA-N6UGXSUA	09/08/2025	09/08/2025	500	48	01/09/2025	3	Monthly	166.67	17	1.67	0	183.67	556	0	ACTIVE	4	0</div><div class="line">LOA-PH254CM8	09/08/2025	09/08/2025	500	46.2	01/09/2025	3	Monthly	333.36	32.84	3.33	0	366.2	553.89	0	ACTIVE	0	0</div><div class="line">LOA-DZZKKFKL	09/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.78	3.33	0	367.11	555.3	0	ACTIVE	0	0</div><div class="line">LOA-9NZPXCSZ	09/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	500	49.6	5	49.6	549.6	554.6	0	CLOSED	0	0</div><div class="line">LOA-S9HT717U	09/08/2025	09/08/2025	500	48	01/09/2025	3	Monthly	166.67	19.72	1.67	0	186.4	556	0	ACTIVE	0	0</div><div class="line">LOA-U8E89GVV	09/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	33.07	3.33	0	366.4	554.6	0	ACTIVE	0	0</div><div class="line">LOA-CHRPF7LH	09/08/2025	09/08/2025	500	48	01/09/2025	3	Monthly	333.33	34	3.33	0	367.33	555.99	0	ACTIVE	0	0</div><div class="line">LOA-M8CVH6K9	09/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	35.41	3.33	0	368.73	554.59	0	ACTIVE	0	0</div><div class="line">LOA-XAVGT15F	08/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	166.67	18.71	1.67	0	185.38	555.25	0	ACTIVE	4	0</div><div class="line">LOAEPF2AM934B1308K	08/08/2025	09/08/2025	500	45	01/09/2025	3	Monthly	333.34	34.17	0.83	0	367.5	553.12	0	ACTIVE	0	0</div><div class="line">LOA-FJEHTZAJ	08/08/2025	09/08/2025	500	47.76	01/09/2025	3	Monthly	333.33	33.82	3.33	0	367.15	556.38	0	ACTIVE	0	0</div><div class="line">LOA-FN66GDV2	08/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	34.03	3.33	0	367.35	555.96	0	ACTIVE	0	0</div><div class="line">LOA-LPDG34DY	08/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.38	33.54	3.33	0	366.92	555.95	0	ACTIVE	0	0</div><div class="line">LOA-1AQ3A1DP	08/08/2025	09/08/2025	500	45.6	01/09/2025	3	Monthly	500	48.2	5	48.2	548.2	553.83	0	CLOSED	0	0</div><div class="line">LOA-678A7LL8	08/08/2025	09/08/2025	500	35.88	01/09/2025	3	Monthly	333.33	24.58	3.33	0	357.91	542.35	0	ACTIVE	0	0</div><div class="line">LOA-TZY3GS6C	08/08/2025	09/08/2025	500	46.2	01/09/2025	3	Monthly	166.67	18.44	1.67	0	185.11	554.54	0	ACTIVE	4	0</div><div class="line">LOA-G7JCKZQG	08/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	33.07	3.33	0	366.4	555.25	0	ACTIVE	0	0</div><div class="line">LOA-Y1S8QZX7	08/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	35.5	3.33	0	368.83	555.96	0	ACTIVE	0	0</div><div class="line">LOA-K75F5FDF	08/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.38	33.54	3.33	0	366.91	555.95	0	ACTIVE	0	0</div><div class="line">LOA-SBTK7Y1G	08/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	500	34.78	5	0	534.78	555.25	0	ACTIVE	0	0</div><div class="line">LOA-CK5SNBVY	08/08/2025	09/08/2025	500	45.6	01/09/2025	3	Monthly	333.33	32.14	3.33	0	365.47	553.83	0	ACTIVE	0	0</div><div class="line">LOA-JFYXK6ZV	08/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.54	3.33	0	366.87	555.95	0	ACTIVE	0	0</div><div class="line">LOA-FD286T9L	08/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.53	3.34	0	366.87	555.96	0	ACTIVE	0	0</div><div class="line">LOA-NQK9HE7B	08/08/2025	09/08/2025	500	47.76	01/09/2025	3	Monthly	166.67	16.9	1.67	0	183.57	556.38	0	ACTIVE	4	0</div><div class="line">LOA-YA9CYKTG	08/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	333.39	33.07	3.33	0	366.46	555.24	0	ACTIVE	0	0</div><div class="line">LOA-HXE94M74	08/08/2025	09/08/2025	500	45.6	01/09/2025	3	Monthly	500	48.2	5	48.2	548.2	553.83	0	CLOSED	0	0</div><div class="line">LOA-X8CQMT5C	08/08/2025	08/08/2025	500	47.76	01/09/2025	3	Monthly	333.34	34.26	3.33	0	367.6	556.38	0	ACTIVE	0	0</div><div class="line">LOA-LD2UB9BM	08/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	34.96	3.33	0	368.29	555.96	0	ACTIVE	0	0</div><div class="line">LOA-BZJ6P3HR	08/08/2025	08/08/2025	500	47.52	01/09/2025	3	Monthly	272.13	35.17	2.72	0	307.3	556.1	0	ACTIVE	4	0</div><div class="line">LOA-2AJSEESP	08/08/2025	08/08/2025	500	46.8	01/09/2025	3	Monthly	166.67	17.47	1.67	0	184.14	555.24	0	ACTIVE	4	0</div><div class="line">LOA-A9ZCJU5Q	08/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.98	3.33	0	367.31	555.95	0	ACTIVE	0	0</div><div class="line">LOA-UF1XF313	08/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.98	3.33	0	367.31	555.96	0	ACTIVE	0	0</div><div class="line">LOA-3HK9BUYU	07/08/2025	08/08/2025	500	46.8	01/09/2025	4	Monthly	250.04	31.63	5.75	0	281.66	575.4	0	ACTIVE	0	0</div><div class="line">LOA-2739K24L	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	166.7	19.78	1.67	0	186.48	556.61	0	ACTIVE	4	0</div><div class="line">LOA-H1DLXBHR	07/08/2025	08/08/2025	500	46.8	01/09/2025	3	Monthly	333.41	33.49	3.34	0	366.91	555.9	0	ACTIVE	0	0</div><div class="line">LOA-BFA3HFFP	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	500	50.96	5	50.96	550.96	556.61	0	CLOSED	0	0</div><div class="line">LOA-4YCGYC6N	07/08/2025	08/08/2025	500	47.76	01/09/2025	3	Monthly	500	51.38	5	51.38	551.38	557.04	0	CLOSED	0	0</div><div class="line">LOA-BD3RVEKH	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	35.2	3.33	0	368.53	556.61	0	ACTIVE	0	0</div><div class="line">LOA-R13FKDFN	07/08/2025	08/08/2025	500	46.8	01/09/2025	3	Monthly	333.42	33.99	3.33	0	367.4	555.89	0	ACTIVE	0	0</div><div class="line">LOA-FUT2ZSQC	07/08/2025	08/08/2025	500	45	01/09/2025	3	Monthly	333.33	32.09	3.33	0	365.42	553.75	0	ACTIVE	0	0</div><div class="line">LOA-TYQQ5CHE	07/08/2025	08/08/2025	500	46.8	01/09/2025	3	Monthly	500	45.23	5	45.24	545.24	555.9	0	CLOSED	0	0</div><div class="line">LOA-E37A4VGZ	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.98	3.33	0	367.31	556.61	0	ACTIVE	0	0</div><div class="line">LOA-7DEQQH96	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	373.39	33.81	3.74	0	407.21	556.61	0	ACTIVE	0	0</div><div class="line">LOA-QB53XKYR	07/08/2025	08/08/2025	250	47.76	01/09/2025	3	Monthly	166.67	17.12	1.67	0	183.79	278.52	0	ACTIVE	0	0</div><div class="line">LOA-FDMF7YNT	07/08/2025	08/08/2025	500	46.2	01/09/2025	3	Monthly	500	50.97	5	50.97	550.97	555.18	0	CLOSED	0	0</div><div class="line">LOA-Q5SGPF2E	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	166.67	16.98	1.67	0	183.65	556.61	0	ACTIVE	4	0</div><div class="line">LOA-RQXN8ZTZ	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	333.34	33.98	3.33	0	367.31	556.61	0	ACTIVE	0	0</div><div class="line">LOA-YV2FYMN5	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.98	3.33	0	367.31	556.61	0	ACTIVE	0	0</div><div class="line">LOA-KQ54MU6F	07/08/2025	07/08/2025	500	45.6	01/09/2025	6	Monthly	166.68	32.58	5	0	199.25	612.72	0	ACTIVE	0	0</div><div class="line">LOAEPFG9CVXDQDHK98	07/08/2025	07/08/2025	500	45.6	01/09/2025	5	Monthly	0	0	0	0	0	593.1	500	CANCELLED	0	0</div><div class="line">LOA-REF9GS9A	07/08/2025	07/08/2025	500	46.8	01/09/2025	6	Monthly	500.01	47.38	15	47.39	547.39	615.71	0	CLOSED	0	0</div><div class="line">LOA-2XEE7K1A	07/08/2025	07/08/2025	500	46.2	01/09/2025	5	Monthly	100.01	16.82	2.5	0	116.84	594.31	0	ACTIVE	0	0</div><div class="line">LOA-S6KYDQR2	07/08/2025	07/08/2025	500	47.76	01/09/2025	2	Monthly	500	31.48	5	31.48	531.48	536.48	0	CLOSED	0	0</div><div class="line">LOA-JNDTYRYE	07/08/2025	07/08/2025	250	47.4	01/09/2025	3	Monthly	250	25.81	2.5	25.81	275.81	278.3	0	CLOSED	0	0</div><div class="line">LOA-UQAH2DNQ	06/08/2025	06/08/2025	500	45.6	01/09/2025	3	Monthly	333.34	33.4	3.34	0	366.74	555.1	0	ACTIVE	0	0</div><div class="line">LOA-JAGAZANL	06/08/2025	06/08/2025	500	47.4	01/09/2025	3	Monthly	333.35	34.86	3.33	0	368.2	557.27	0	ACTIVE	0	0</div><div class="line">LOA-QCZP2U8J	05/08/2025	06/08/2025	500	46.8	01/09/2025	3	Monthly	333.38	34.37	3.33	0	367.74	557.2	0	ACTIVE	0	0</div><div class="line">LOA-9CH586DM	05/08/2025	06/08/2025	500	46.2	01/09/2025	3	Monthly	166.67	16.94	1.67	0	183.61	556.46	0	ACTIVE	4	0</div><div class="line">LOA-K86VFCEH	05/08/2025	06/08/2025	500	48	01/09/2025	3	Monthly	500	47.56	5	47.56	547.56	558.67	0	CLOSED	0	0</div><div class="line">LOA-YFD9GRX8	05/08/2025	06/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	34.61	3.33	0	367.94	557.2	0	ACTIVE	0	0</div><div class="line">LOA-KJ4JJN4G	05/08/2025	06/08/2025	500	47.76	01/09/2025	3	Monthly	166.67	17.57	1.67	0	184.24	558.37	0	ACTIVE	4	0</div><div class="line">LOA-PNZF3VH9	05/08/2025	06/08/2025	500	46.8	01/09/2025	3	Monthly	500	32.7	5	0	532.7	557.2	0	ACTIVE	0	0</div><div class="line">LOA-V2HV4TVT	05/08/2025	06/08/2025	500	47.76	01/09/2025	3	Monthly	166.67	17.57	1.67	0	184.24	558.37	0	ACTIVE	0	0</div><div class="line">LOA-M7DZGZGQ	05/08/2025	06/08/2025	500	46.8	01/09/2025	3	Monthly	333.39	40.17	3.34	0	373.56	557.2	0	ACTIVE	0	0</div><div class="line">LOA-Q3AGPP71	05/08/2025	06/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	34.85	3.33	0	368.18	557.93	0	ACTIVE	0	0</div><div class="line">LOA-P4NQYT7R	05/08/2025	05/08/2025	500	35.88	01/09/2025	3	Monthly	333.34	25.91	3.33	0	359.24	544.35	0	ACTIVE	0	0</div><div class="line">LOA-178RH78G	05/08/2025	05/08/2025	500	48	01/09/2025	3	Monthly	333.33	35.78	3.33	0	369.11	558.66	0	ACTIVE	0	0</div><div class="line">LOA-RENETDJD	05/08/2025	05/08/2025	500	47.4	01/09/2025	3	Monthly	333.34	35.29	3.33	0	368.62	558.59	0	ACTIVE	0	0</div><div class="line">LOA-RHQJ5UN1	05/08/2025	05/08/2025	500	48	01/09/2025	3	Monthly	333.34	35.78	3.33	0	369.11	558.67	0	ACTIVE	0	0</div><div class="line">LOA-AE397NP9	05/08/2025	05/08/2025	500	48	01/09/2025	3	Monthly	333.33	35.78	3.33	0	369.11	558.66	0	ACTIVE	0	0</div><div class="line">LOA-HMHG7GRQ	05/08/2025	05/08/2025	500	48	01/09/2025	3	Monthly	333.33	35.78	3.33	0	369.11	558.66	0	ACTIVE	0	0</div><div class="line">LOA-ZH9TLUJ4	05/08/2025	05/08/2025	500	48	01/09/2025	3	Monthly	333.33	35.78	3.33	0	369.11	558.66	0	ACTIVE	0	0</div><div class="line">LOA-PT5YAJBC	05/08/2025	05/08/2025	500	35.88	01/09/2025	3	Monthly	333.33	25.91	3.33	0	359.24	543.85	0	ACTIVE	0	0</div><div class="line">LOA-X5ZZHJEQ	03/08/2025	04/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	35.24	3.33	0	368.57	559.15	0	ACTIVE	0	0</div><div class="line">LOA-3CTKMLU2	03/08/2025	04/08/2025	500	46.8	01/09/2025	3	Monthly	500	52.85	5	52.85	552.85	559.15	0	CLOSED	0	0</div><div class="line">LOA-U8B6GX37	03/08/2025	03/08/2025	500	46.8	01/09/2025	3	Monthly	166.67	21.98	1.67	0	188.65	559.15	0	ACTIVE	4	0</div><div class="line">LOA-H7PU5K5P	03/08/2025	03/08/2025	500	46.2	01/09/2025	3	Monthly	333.33	35.17	3.33	0	368.5	558.39	0	ACTIVE	0	0</div><div class="line">LOA-TZMF6ADJ	02/08/2025	03/08/2025	500	48	01/09/2025	3	Monthly	333.34	36.67	3.33	0	370	560.67	0	ACTIVE	0	0</div><div class="line">LOA-XLALZBGN	02/08/2025	03/08/2025	500	48	01/09/2025	3	Monthly	333.33	36.67	3.33	0	370	560.66	0	ACTIVE	0	0</div><div class="line">LOA-KP18UB76	02/08/2025	03/08/2025	500	47.76	01/09/2025	3	Monthly	333.48	36.71	3.34	0	370.19	560.36	0	ACTIVE	0	0</div><div class="line">LOA-ZM47HLUE	02/08/2025	03/08/2025	500	47.76	01/09/2025	3	Monthly	333.33	36.47	3.33	0	369.8	561.02	0	ACTIVE	0	0</div><div class="line">LOA-HB48YDXU	29/07/2025	30/07/2025	500	47.4	01/09/2025	12	Monthly	145.14	31.56	8.71	0	176.7	742.9	0	ACTIVE	0	0</div><div class="line">LOA-LUXY9CXT	29/07/2025	30/07/2025	500	48	01/09/2025	12	Monthly	83.33	35.78	5	0	119.11	746	0	ACTIVE	0	0</div><div class="line">LOA-P2V2B6EC	29/07/2025	30/07/2025	500	47.4	01/09/2025	12	Monthly	83.34	35.27	5	0	118.61	742.95	0	ACTIVE	0	0</div><div class="line">LOA-7A4Y37YV	29/07/2025	30/07/2025	500	45	01/09/2025	12	Monthly	83.33	33.23	5	0	116.56	730.6	0	ACTIVE	0	0</div><div class="line">LOA-1XHRP1J6	10/07/2025	11/07/2025	250	47.4	01/08/2025	2	Monthly	250	14.62	2.5	14.62	264.62	267.44	0	CLOSED	0	0</div><div class="line">LOA-SGJMQSEK	10/07/2025	11/07/2025	500	47.4	01/08/2025	2	Monthly	500	29.24	5	29.24	529.24	534.89	0	CLOSED	0	0</div><div class="line">LOA-TX1EKKRU	10/07/2025	11/07/2025	500	47.76	01/08/2025	3	Monthly	500	52.09	5	52.09	552.09	555.06	0	CLOSED	9	0</div><div class="line">LOA-V955ZSD9	10/07/2025	11/07/2025	500	47.76	01/08/2025	3	Monthly	500	49.39	5	49.4	549.4	555.06	0	CLOSED	0	0</div><div class="line">LOA-7LEXJ7CH	10/07/2025	11/07/2025	500	47.4	01/08/2025	3	Monthly	500	48.98	5	48.98	548.98	554.64	0	CLOSED	0	0</div><div class="line">LOA-4PDSZS66	10/07/2025	11/07/2025	500	47.76	01/08/2025	3	Monthly	500	50.88	5	50.88	550.88	555.05	0	CLOSED	0	0</div><div class="line">LOA-DCSG7RUH	10/07/2025	11/07/2025	500	47.4	01/08/2025	3	Monthly	500	48.98	5	48.99	548.99	554.64	0	CLOSED	0	0</div><div class="line">LOA-SFTPLTPJ	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	333.37	34.36	3.33	0	367.73	553.95	0	ACTIVE	4	0</div><div class="line">LOA-TSAFEGZN	10/07/2025	11/07/2025	500	46.8	01/08/2025	2	Monthly	500	28.8	5	28.8	528.8	534.45	0	CLOSED	0	0</div><div class="line">LOA-5SEQUUA5	10/07/2025	11/07/2025	500	47.76	01/08/2025	3	Monthly	333.33	36.13	3.33	0	369.46	555.05	0	ACTIVE	4	0</div><div class="line">LOA-5SRT3C6N	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	166.67	18.74	1.67	0	185.41	553.95	0	ACTIVE	34	0</div><div class="line">LOA-XPFNK542	10/07/2025	11/07/2025	500	47.76	01/08/2025	3	Monthly	500	49.64	5	49.64	549.64	555.05	0	CLOSED	0	0</div><div class="line">LOA-Z41BPPT3	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	48.3	5	48.3	548.3	553.94	0	CLOSED	0	0</div><div class="line">LOA-7NUY4VV8	10/07/2025	11/07/2025	500	47.4	01/08/2025	2	Monthly	500	29.59	5	29.59	529.59	534.89	0	CLOSED	1	0</div><div class="line">LOA-RQHD5EY7	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	47.15	5	47.15	547.15	553.95	0	CLOSED	0	0</div><div class="line">LOA-6379PEX9	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	47.2	5	47.2	547.2	553.95	0	CLOSED	0	0</div><div class="line">LOA-27SRN978	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	43.75	5	43.75	543.75	553.95	0	CLOSED	0	0</div><div class="line">LOA-FMNFQUFB	10/07/2025	11/07/2025	500	47.76	01/08/2025	3	Monthly	500	49.39	5	49.39	549.39	555.05	0	CLOSED	0	0</div><div class="line">LOA-J8NUPZ73	10/07/2025	11/07/2025	500	47.4	01/08/2025	3	Monthly	500	48.98	5	48.98	548.98	554.64	0	CLOSED	0	0</div><div class="line">LOA-RYVS28JP	10/07/2025	11/07/2025	500	40.8	01/08/2025	3	Monthly	500	41.67	5	41.67	541.67	547.03	0	CLOSED	0	0</div><div class="line">LOA-T121SXVG	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	48.3	5	48.3	548.3	553.95	0	CLOSED	0	0</div><div class="line">LOA-MY6HXLEN	10/07/2025	11/07/2025	500	46.2	01/08/2025	2	Monthly	500	28.37	5	28.37	528.37	534	0	CLOSED	0	0</div><div class="line">LOA-3KVPB8RY	10/07/2025	11/07/2025	500	42	01/08/2025	3	Monthly	500	43.52	5	43.52	543.52	548.41	0	CLOSED	0	0</div><div class="line">LOA-DPLX92YM	10/07/2025	11/07/2025	500	47.4	01/08/2025	3	Monthly	500	48.98	5	48.98	548.98	554.64	0	CLOSED	0	0</div><div class="line">LOA-2G5CZCAB	10/07/2025	11/07/2025	500	47.4	01/08/2025	3	Monthly	500	48.98	5	48.99	548.99	554.64	0	CLOSED	0	0</div><div class="line">LOA-URM7L184	10/07/2025	11/07/2025	500	47.4	01/08/2025	2	Monthly	500	29.23	5	29.23	529.23	534.89	0	CLOSED	0	0</div><div class="line">LOA-53SMVYLK	10/07/2025	10/07/2025	250	47.4	01/08/2025	2	Monthly	250	14.79	2.5	14.79	264.79	267.44	0	CLOSED	0	0</div><div class="line">LOA-P1KMU5VJ	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	48.3	5	48.3	548.3	553.94	0	CLOSED	0	0</div><div class="line">LOA-J1SZV9VK	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	333.34	32.44	3.33	0	365.78	553.95	0	ACTIVE	4	0</div><div class="line">LOA-S6R1UKAV	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	48.3	5	48.3	548.3	553.95	0	CLOSED	0	0</div><div class="line">LOA-U2QRC2CL	10/07/2025	11/07/2025	500	35.88	01/08/2025	3	Monthly	500	35.86	5	35.86	535.86	541.36	0	CLOSED	0	0</div><div class="line">LOA-S33MAPSH	10/07/2025	11/07/2025	500	45	01/08/2025	3	Monthly	333.34	30.84	3.33	0	364.17	551.87	0	ACTIVE	4	0</div><div class="line">LOA-43RC6BA2	10/07/2025	11/07/2025	500	46.2	01/08/2025	3	Monthly	500	49.27	5	49.27	549.27	553.25	0	CLOSED	0	0</div><div class="line">LOA-4FY44FUL	10/07/2025	11/07/2025	500	46.2	01/08/2025	3	Monthly	500	46.74	5	46.75	546.75	553.26	0	CLOSED	0	0</div><div class="line">LOA-R6GJXXAN	10/07/2025	11/07/2025	500	46.2	01/08/2025	3	Monthly	500	47.62	5	47.62	547.62	553.26	0	CLOSED	0	0</div><div class="line">LOA-MRKCH9Q9	10/07/2025	11/07/2025	500	46.2	01/08/2025	3	Monthly	500	42.98	5	42.98	542.98	553.26	0	CLOSED	0	0</div><div class="line">LOA-DY13RYT7	10/07/2025	11/07/2025	500	45.6	01/08/2025	3	Monthly	500	47.63	5	47.64	547.64	552.57	0	CLOSED	0	0</div><div class="line">LOA-MVSM4N66	10/07/2025	11/07/2025	500	47.52	01/08/2025	3	Monthly	500	58.16	5	58.16	558.16	554.78	0	CLOSED	0	0</div><div class="line">LOA-E9BEVLKQ	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	49.02	5	49.02	549.02	553.94	0	CLOSED	0	0</div><div class="line">LOA-J3ATH7FX	10/07/2025	11/07/2025	500	46.2	01/08/2025	3	Monthly	500	48.8	5	48.8	548.8	553.26	0	CLOSED	2	0</div></div>
+                    </div>
+                    <div class="sheet-column">
+                        <h3>Prod Excel</h3>
+                        <div class="content"><div class="line">	Innofin Solutions Private Limited</div><div class="line">Manual Lending Report</div><div class="line">Lender Name	TEJAS RAJESH ITANKAR		Total Illustrative Receivable	The total amount expected from the borrower inclusive of fees</div><div class="line">Lender ID	ZDDIZGE0VZ		Total Amount Received	Total amount received after deduction of fees</div><div class="line">Lending Type	Manual Lending</div><div class="line">From Date	06/04/2025</div><div class="line">To Date	05/10/2025</div><div class="line">Total Lent	₹146250</div><div class="line">Total Received	₹107739.42</div><div class="line">Total Cancelled/Rejected Loan Amount	₹500</div><div class="line">Total Refunded Amount	₹500</div><div class="line">Report Summary</div><div class="line">Loan ID	Lending Date	Disbursement Date	Lending Amount (₹)	Interest Rate (%)	Repayment Start Date	Tenure (months)	Repayment Type	Principal Received (₹)	Interest Received (₹)	Fee Charges Deducted (₹)	Profit &amp; Loss (₹)	Total Amount Received (₹)	Total Illustrative Receivable (₹)	Refunded Amount (₹)	Status	DPD (days past due)	NPA</div><div class="line">z	09/08/2025	10/08/2025	500	47.4	01/09/2025	3	Monthly	13.79	18.07	0.14	0	31.87	555.3	0	ACTIVE	34	0</div><div class="line">LOA-SAJVAAFJ	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	0	0	0	0	0	556.61	0	ACTIVE	34	0</div><div class="line">LOA-DK6QCHJ8	10/07/2025	11/07/2025	500	35.88	01/08/2025	2	Monthly	500	21.03	5	0	521.03	526.41	0	ACTIVE	34	0</div><div class="line">LOA-U5EE5QZA	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	16.98	1.67	0	183.65	555.95	0	ACTIVE	0	0</div><div class="line">LOA-9DG8KT18	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	16.98	1.67	0	183.65	555.96	0	ACTIVE	0	0</div><div class="line">LOA-CTSB78VQ	07/09/2025	07/09/2025	500	46.2	01/10/2025	3	Monthly	333.36	33.03	3.33	0	366.39	554.54	0	ACTIVE	0	0</div><div class="line">LOA-JYUN1MY7	07/09/2025	07/09/2025	500	47.76	01/10/2025	3	Monthly	166.67	17.12	1.67	0	183.8	556.38	0	ACTIVE	0	0</div><div class="line">LOA-RYEJMQUS	07/09/2025	07/09/2025	500	48	01/10/2025	3	Monthly	166.67	17.22	1.67	0	183.89	556.67	0	ACTIVE	0	0</div><div class="line">LOA-5332DBXY	07/09/2025	07/09/2025	500	46.8	01/10/2025	3	Monthly	166.67	16.75	1.67	0	183.42	555.25	0	ACTIVE	0	0</div><div class="line">LOA-6A89AVBL	07/09/2025	07/09/2025	500	46.8	01/10/2025	3	Monthly	166.67	16.75	1.67	0	183.42	555.25	0	ACTIVE	0	0</div><div class="line">LOA-YT9CXDZ2	07/09/2025	07/09/2025	500	46.8	01/10/2025	3	Monthly	166.67	16.75	1.67	0	183.42	555.25	0	ACTIVE	0	0</div><div class="line">LOA-LSFJZT47	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	16.98	1.67	0	183.65	555.95	0	ACTIVE	0	0</div><div class="line">LOA-DZJ89VD1	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	16.98	1.67	0	183.65	555.95	0	ACTIVE	0	0</div><div class="line">LOA-D13Q8Y5N	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	16.98	1.67	0	183.65	555.95	0	ACTIVE	0	0</div><div class="line">LOA-5DMU389H	07/09/2025	07/09/2025	500	46.8	01/10/2025	3	Monthly	166.67	16.75	1.67	0	183.42	555.25	0	ACTIVE	0	0</div><div class="line">LOA-LZM44B4U	07/09/2025	07/09/2025	500	46.8	01/10/2025	3	Monthly	500	50.25	5	50.25	550.25	555.25	0	CLOSED	0	0</div><div class="line">LOA-JULM56ZP	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	16.98	1.67	0	183.65	555.96	0	ACTIVE	0	0</div><div class="line">LOA-5UQEAFG5	07/09/2025	07/09/2025	500	48	01/10/2025	3	Monthly	166.67	17.22	1.67	0	183.89	556.66	0	ACTIVE	0	0</div><div class="line">LOA-4GHYK2VB	07/09/2025	07/09/2025	500	46.8	01/10/2025	3	Monthly	166.67	16.75	1.67	0	183.42	555.24	0	ACTIVE	0	0</div><div class="line">LOA-AAVJ54ZA	07/09/2025	07/09/2025	250	46.8	01/10/2025	3	Monthly	83.33	8.38	0.83	0	91.71	277.62	0	ACTIVE	0	0</div><div class="line">LOA-YQHPYG9M	07/09/2025	07/09/2025	500	45.6	01/10/2025	3	Monthly	166.67	16.27	1.67	0	182.94	553.83	0	ACTIVE	0	0</div><div class="line">LOA-RPX2FAJG	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	0	0	0	0	0	555.96	0	ACTIVE	4	0</div><div class="line">LOA-2Y2C7Q6P	07/09/2025	07/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	16.98	1.67	0	183.65	555.95	0	ACTIVE	0	0</div><div class="line">LOA-5GQQKSTL	03/09/2025	03/09/2025	500	48	01/10/2025	3	Monthly	500	54.34	5	54.33	554.33	559.33	0	CLOSED	0	0</div><div class="line">LOA-G7YZYN1S	03/09/2025	03/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	17.86	1.67	0	184.53	558.59	0	ACTIVE	0	0</div><div class="line">LOA-G52N8GXX	03/09/2025	03/09/2025	500	48	01/10/2025	3	Monthly	0	0	0	0	0	560	0	ACTIVE	4	0</div><div class="line">LOA-FYJ1ZEPA	03/09/2025	03/09/2025	500	48	01/10/2025	3	Monthly	166.67	18.11	1.67	0	184.78	559.33	0	ACTIVE	0	0</div><div class="line">LOA-FS39QSYH	03/09/2025	03/09/2025	500	48	01/10/2025	3	Monthly	166.67	18.11	1.67	0	184.78	560	0	ACTIVE	0	0</div><div class="line">LOA-EKZ2QVMX	03/09/2025	03/09/2025	500	46.8	01/10/2025	3	Monthly	166.67	17.61	1.67	0	184.28	558.5	0	ACTIVE	0	0</div><div class="line">LOA-A3TMLKFN	03/09/2025	03/09/2025	500	46.8	01/10/2025	3	Monthly	166.67	18.05	1.67	0	184.72	558.49	0	ACTIVE	0	0</div><div class="line">LOA-A12V4DC3	03/09/2025	03/09/2025	500	48	01/10/2025	3	Monthly	500	54.33	5	54.33	554.33	559.33	0	CLOSED	0	0</div><div class="line">LOA-89YTN7B6	03/09/2025	03/09/2025	500	48	01/10/2025	3	Monthly	0	0	0	0	0	559.33	0	ACTIVE	0	0</div><div class="line">LOA-2KDPKR1E	03/09/2025	03/09/2025	500	47.4	01/10/2025	3	Monthly	166.67	17.86	1.67	0	184.53	558.59	0	ACTIVE	0	0</div><div class="line">LOA-GRN39L7Q	30/08/2025	30/08/2025	500	46.8	01/10/2025	3	Monthly	0	0	0	0	0	560.44	0	ACTIVE	4	0</div><div class="line">LOA-7X29M6QC	30/08/2025	30/08/2025	500	46.8	01/10/2025	3	Monthly	166.67	18.48	1.67	0	185.15	560.44	0	ACTIVE	0	0</div><div class="line">LOA-77UPQ42V	30/08/2025	31/08/2025	500	47.4	01/10/2025	3	Monthly	333.33	37.05	3.33	0	370.38	561.22	0	ACTIVE	0	0</div><div class="line">LOA-4M8X5FVM	30/08/2025	30/08/2025	500	46.8	01/10/2025	3	Monthly	166.67	18.48	1.67	0	185.15	560.44	0	ACTIVE	0	0</div><div class="line">LOA-YLVP4934	30/08/2025	30/08/2025	500	47.4	01/10/2025	3	Monthly	166.67	18.74	1.67	0	185.41	561.22	0	ACTIVE	0	0</div><div class="line">LOA-UFVTRVMX	30/08/2025	30/08/2025	500	46.8	01/10/2025	3	Monthly	166.67	18.48	1.67	0	185.15	560.45	0	ACTIVE	0	0</div><div class="line">LOA-AEARAPDL	30/08/2025	30/08/2025	500	46.8	01/10/2025	3	Monthly	166.67	18.48	1.67	0	185.15	560.45	0	ACTIVE	0	0</div><div class="line">LOA-9EK4KGHD	30/08/2025	30/08/2025	500	48	01/10/2025	3	Monthly	0	0	0	0	0	562	0	ACTIVE	4	0</div><div class="line">LOA-6BNJT8F6	30/08/2025	30/08/2025	500	48	01/10/2025	3	Monthly	166.67	19	1.67	0	185.67	562	0	ACTIVE	0	0</div><div class="line">LOA-E4U627AF	27/08/2025	27/08/2025	500	46.8	01/10/2025	3	Monthly	166.67	19.13	1.67	0	185.8	562.4	0	ACTIVE	0	0</div><div class="line">LOA-E2XGV9H3	27/08/2025	27/08/2025	500	46.8	01/10/2025	3	Monthly	500	57.4	5	57.4	557.4	562.4	0	CLOSED	0	0</div><div class="line">LOA-ZC6YQFBN	27/08/2025	27/08/2025	500	47.4	01/10/2025	3	Monthly	166.67	19.4	1.67	0	186.07	563.2	0	ACTIVE	0	0</div><div class="line">LOA-TCYUSGZP	27/08/2025	27/08/2025	500	46.8	01/10/2025	3	Monthly	0	0	0	0	0	562.4	0	ACTIVE	4	0</div><div class="line">LOA-Q48HFPXM	27/08/2025	27/08/2025	500	46.8	01/10/2025	3	Monthly	500	57.4	5	57.4	557.4	562.4	0	CLOSED	0	0</div><div class="line">LOA-GZNZAL6H	27/08/2025	27/08/2025	500	47.76	01/10/2025	3	Monthly	166.67	19.56	1.67	0	186.23	563.68	0	ACTIVE	0	0</div><div class="line">LOAEPF845BZSKZL1KC	21/08/2025	21/08/2025	500	46.8	01/10/2025	3	Monthly	500	57.08	1.25	57.09	557.09	547.45	0	CLOSED	0	0</div><div class="line">LOA-B8JFXDJE	21/08/2025	21/08/2025	500	48	01/10/2025	3	Monthly	166.67	21	1.67	0	187.67	568	0	ACTIVE	0	0</div><div class="line">LOA-3T73UZXT	21/08/2025	21/08/2025	500	46.2	01/10/2025	3	Monthly	166.67	20.15	1.67	0	186.82	565.45	0	ACTIVE	0	0</div><div class="line">LOA-2LD1J4GR	19/08/2025	19/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	28.74	3.33	0	362.07	548.1	0	ACTIVE	0	0</div><div class="line">LOA-S24KGMBF	19/08/2025	19/08/2025	500	45.6	01/09/2025	3	Monthly	500	41.87	5	41.87	541.87	546.86	0	CLOSED	0	0</div><div class="line">LOA-C3RX3UPM	19/08/2025	19/08/2025	500	45.6	01/09/2025	3	Monthly	333.34	27.91	3.34	0	361.25	546.86	0	ACTIVE	0	0</div><div class="line">LOA-J71KJK82	18/08/2025	18/08/2025	500	45.6	01/09/2025	3	Monthly	333.33	31.59	3.33	0	364.91	547.5	0	ACTIVE	0	0</div><div class="line">LOA-BATE5XDQ	18/08/2025	18/08/2025	500	35.88	01/09/2025	3	Monthly	166.67	11.33	1.67	0	178	537.37	0	ACTIVE	4	0</div><div class="line">LOA-161L8JZK	15/08/2025	16/08/2025	500	45.6	01/09/2025	3	Monthly	333.38	29.18	3.33	0	362.56	549.4	0	ACTIVE	0	0</div><div class="line">LOA-2VUVEQSA	15/08/2025	16/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.04	3.33	0	363.37	550.7	0	ACTIVE	0	0</div><div class="line">LOA-GV5U272E	15/08/2025	16/08/2025	500	45.6	01/09/2025	3	Monthly	333.33	29.18	3.33	0	362.51	549.4	0	ACTIVE	0	0</div><div class="line">LOA-YSM8PYPM	15/08/2025	16/08/2025	500	46.8	01/09/2025	3	Monthly	500	45.05	5	45.05	545.05	550.7	0	CLOSED	0	0</div><div class="line">LOA-R4RY1AZP	15/08/2025	16/08/2025	500	47.4	01/09/2025	3	Monthly	333.34	31.67	3.33	0	365.01	551.35	0	ACTIVE	0	0</div><div class="line">LOA-9YKXNJ2P	15/08/2025	16/08/2025	500	45.6	01/09/2025	3	Monthly	333.33	29.18	3.33	0	362.51	549.4	0	ACTIVE	0	0</div><div class="line">LOA-XQB4V7SY	15/08/2025	16/08/2025	500	36	01/09/2025	3	Monthly	333.33	22.88	3.33	0	356.21	539	0	ACTIVE	0	0</div><div class="line">LOAEPF9AZQP85RAALN	15/08/2025	16/08/2025	500	45	01/09/2025	3	Monthly	500	46.88	1.25	46.88	546.88	548.75	0	CLOSED	0	0</div><div class="line">LOA-JHLU9439	15/08/2025	15/08/2025	1000	47.76	01/09/2025	3	Monthly	333.33	37.52	3.33	0	370.85	1103.48	0	ACTIVE	4	0</div><div class="line">LOA-5J8CET27	15/08/2025	15/08/2025	1000	47.4	01/09/2025	3	Monthly	333.34	30.91	3.33	0	364.24	1102.7	0	ACTIVE	4	0</div><div class="line">LOA-F8LGHQG4	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.47	3.33	0	363.8	550.7	0	ACTIVE	0	0</div><div class="line">LOA-C41JPR2F	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	500	46.35	5	46.35	546.35	551.35	0	CLOSED	0	0</div><div class="line">LOA-CLQXLBHX	15/08/2025	15/08/2025	500	48	01/09/2025	3	Monthly	500	47	5	47	547	552	0	CLOSED	0	0</div><div class="line">LOA-ZRHA157D	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.47	3.33	0	363.8	550.7	0	ACTIVE	0	0</div><div class="line">LOA-DGY7L3FV	15/08/2025	15/08/2025	500	46.2	01/09/2025	3	Monthly	333.34	30.51	3.33	0	363.84	550.05	0	ACTIVE	0	0</div><div class="line">LOA-MABR8PP5	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	500	41.73	5	41.73	541.73	551.35	0	CLOSED	0	0</div><div class="line">LOA-A8VAVZQC	15/08/2025	15/08/2025	500	45.6	01/09/2025	3	Monthly	500	41.68	5	41.68	541.68	549.4	0	CLOSED	0	0</div><div class="line">LOA-ZU33XQH9	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	333.37	30.9	3.33	0	364.27	551.35	0	ACTIVE	0	0</div><div class="line">LOA-SKUZXR7L	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	30.91	3.33	0	364.23	551.35	0	ACTIVE	0	0</div><div class="line">LOA-PU26HJ77	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	30.9	3.33	0	364.23	551.35	0	ACTIVE	0	0</div><div class="line">LOA-GMBE2EYV	15/08/2025	15/08/2025	500	45.6	01/09/2025	3	Monthly	500	44.4	5	44.4	544.4	549.4	0	CLOSED	0	0</div><div class="line">LOA-C7E7X21Y	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.47	3.33	0	363.8	550.7	0	ACTIVE	0	0</div><div class="line">LOA-P751X99R	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.34	30.47	3.33	0	363.8	550.7	0	ACTIVE	0	0</div><div class="line">LOA-AHK26QAN	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.47	3.33	0	363.8	550.7	0	ACTIVE	0	0</div><div class="line">LOA-GX138A1D	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	30.9	3.33	0	364.23	551.35	0	ACTIVE	0	0</div><div class="line">LOA-583Y3SFU	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	500	46.18	5	46.18	546.18	550.7	0	CLOSED	2	0</div><div class="line">LOA-6KMPCP3E	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.71	3.33	0	364.04	550.7	0	ACTIVE	0	0</div><div class="line">LOA-FLVCE5GZ	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.4	30.47	3.33	0	363.87	550.7	0	ACTIVE	0	0</div><div class="line">LOA-9C97HQHN	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	500	46.35	5	46.35	546.35	551.34	0	CLOSED	0	0</div><div class="line">LOA-3B8U1FS9	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.47	3.33	0	363.8	550.7	0	ACTIVE	0	0</div><div class="line">LOA-3T88PF9R	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	500	46.35	5	46.35	546.35	551.35	0	CLOSED	0	0</div><div class="line">LOA-KMTG18VK	15/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	30.9	3.33	0	364.23	551.35	0	ACTIVE	0	0</div><div class="line">LOA-UM2SXAMK	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.45	30.47	3.33	0	363.92	550.7	0	ACTIVE	0	0</div><div class="line">LOA-KTYQ16MC	15/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.47	3.33	0	363.8	550.7	0	ACTIVE	0	0</div><div class="line">LOAEPF1672V8897SYD	14/08/2025	14/08/2025	500	45.6	01/09/2025	3	Monthly	333.34	32.53	0.83	0	365.86	550.03	0	ACTIVE	0	0</div><div class="line">LOA-9Z2DPTVQ	14/08/2025	14/08/2025	500	47.4	01/09/2025	3	Monthly	333.4	31.34	3.33	0	364.73	552.01	0	ACTIVE	0	0</div><div class="line">LOA-M5HP8TRK	14/08/2025	14/08/2025	500	46.8	01/09/2025	3	Monthly	333.34	31.62	3.33	0	364.96	551.35	0	ACTIVE	0	0</div><div class="line">LOA-YDE42QJM	14/08/2025	14/08/2025	500	47.4	01/09/2025	3	Monthly	166.67	16.51	1.67	0	183.18	552	0	ACTIVE	4	0</div><div class="line">LOA-PUAUQBQY	14/08/2025	14/08/2025	500	46.8	01/09/2025	3	Monthly	333.34	32.24	3.33	0	365.57	551.35	0	ACTIVE	0	0</div><div class="line">LOA-PMRVSF65	14/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.47	3.33	0	363.8	551.35	0	ACTIVE	0	0</div><div class="line">LOA-CUTSHXL9	14/08/2025	15/08/2025	500	48	01/09/2025	3	Monthly	333.34	31.34	3.33	0	364.67	552.67	0	ACTIVE	0	0</div><div class="line">LOA-K8K21RQV	14/08/2025	14/08/2025	500	46.8	01/09/2025	3	Monthly	333.53	30.9	3.34	0	364.43	551.35	0	ACTIVE	0	0</div><div class="line">LOA-59LL93V4	14/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	333.37	32.11	3.33	0	365.48	552	0	ACTIVE	0	0</div><div class="line">LOA-CTS21SX1	14/08/2025	14/08/2025	500	48	01/09/2025	3	Monthly	333.34	32.51	3.34	0	365.85	552.66	0	ACTIVE	0	0</div><div class="line">LOA-HCLFGA9F	14/08/2025	15/08/2025	500	46.8	01/09/2025	3	Monthly	333.34	30.47	3.33	0	363.8	551.35	0	ACTIVE	0	0</div><div class="line">LOA-P3UGGGP3	14/08/2025	14/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.9	3.33	0	364.23	551.34	0	ACTIVE	0	0</div><div class="line">LOA-ZZZTAEHL	14/08/2025	15/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	30.9	3.33	0	364.23	552	0	ACTIVE	0	0</div><div class="line">LOA-ZB4KUK7N	14/08/2025	14/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	30.9	3.33	0	364.23	552	0	ACTIVE	0	0</div><div class="line">LOA-H774ZQ8Q	14/08/2025	14/08/2025	500	46.8	01/09/2025	3	Monthly	500	46.35	5	46.35	546.35	551.35	0	CLOSED	0	0</div><div class="line">LOA-LD4RBHHN	14/08/2025	14/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	31.34	3.33	0	364.67	552.01	0	ACTIVE	0	0</div><div class="line">LOA-S87DLBGD	14/08/2025	14/08/2025	500	43.2	01/09/2025	3	Monthly	500	42.4	5	42.4	542.4	547.39	0	CLOSED	0	0</div><div class="line">LOA-ZKALERLK	14/08/2025	14/08/2025	500	46.2	01/09/2025	3	Monthly	333.34	30.94	3.33	0	364.27	550.69	0	ACTIVE	0	0</div><div class="line">LOA-9CPP9JUY	13/08/2025	14/08/2025	1000	36	01/09/2025	3	Monthly	666.66	46	6.67	0	712.66	1079.99	0	ACTIVE	0	0</div><div class="line">LOA-265Y1LMT	13/08/2025	14/08/2025	500	46.8	01/09/2025	3	Monthly	333.34	30.9	3.33	0	364.24	552	0	ACTIVE	0	0</div><div class="line">LOA-UTLME1M6	13/08/2025	14/08/2025	500	47.4	01/09/2025	3	Monthly	500	47.01	5	47.01	547.01	552.66	0	CLOSED	0	0</div><div class="line">LOA-2DS3VG2S	13/08/2025	14/08/2025	500	47.4	01/09/2025	3	Monthly	333.47	31.33	3.34	0	364.81	552.66	0	ACTIVE	0	0</div><div class="line">LOA-8YM9977J	13/08/2025	14/08/2025	500	48	01/09/2025	3	Monthly	166.72	18.59	1.67	0	185.31	553.33	0	ACTIVE	4	0</div><div class="line">LOAEPF28CENQ6BD0ZY	13/08/2025	14/08/2025	500	45	01/09/2025	3	Monthly	166.68	16.04	0.42	0	182.72	550	0	ACTIVE	4	0</div><div class="line">LOA-N52T2NLZ	13/08/2025	14/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	30.9	3.33	0	364.23	552	0	ACTIVE	0	0</div><div class="line">LOA-XQ4XGN3L	12/08/2025	12/08/2025	500	48	01/09/2025	3	Monthly	333.34	33.16	3.34	0	366.5	554	0	ACTIVE	0	0</div><div class="line">LOA-58REK8DG	12/08/2025	12/08/2025	500	48	01/09/2025	3	Monthly	500	49	5	49	549	554.66	0	CLOSED	0	0</div><div class="line">LOA-ZFFEQ75Q	12/08/2025	12/08/2025	500	47.4	01/09/2025	3	Monthly	166.67	16.11	1.67	0	182.77	553.98	0	ACTIVE	4	0</div><div class="line">LOA-ULYXFZQU	12/08/2025	12/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	32.71	3.33	0	366.04	553.98	0	ACTIVE	0	0</div><div class="line">LOA-BULNZMPB	12/08/2025	12/08/2025	500	48	01/09/2025	3	Monthly	333.33	33.41	3.33	0	366.74	554.66	0	ACTIVE	0	0</div><div class="line">LOA-G7XKL5S2	12/08/2025	12/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	31.77	3.33	0	365.1	553.3	0	ACTIVE	0	0</div><div class="line">LOA-AQRUEDX2	12/08/2025	12/08/2025	500	48	01/09/2025	3	Monthly	500	49	5	49	549	554.66	0	CLOSED	0	0</div><div class="line">LOA-JJNGJHGG	12/08/2025	12/08/2025	500	47.4	01/09/2025	3	Monthly	166.67	16.84	1.67	0	183.51	553.98	0	ACTIVE	4	0</div><div class="line">LOA-7U2FSQLX	12/08/2025	12/08/2025	500	43.2	01/09/2025	3	Monthly	333.33	29.07	3.33	0	362.4	549.19	0	ACTIVE	0	0</div><div class="line">LOA-X4XL9K5F	12/08/2025	12/08/2025	500	47.4	01/09/2025	3	Monthly	500	48.33	5	48.33	548.33	553.98	0	CLOSED	0	0</div><div class="line">LOA-QL11S7XM	12/08/2025	12/08/2025	500	46.8	01/09/2025	3	Monthly	500	47.65	5	47.65	547.65	553.3	0	CLOSED	0	0</div><div class="line">LOA-NDMYDASA	12/08/2025	12/08/2025	500	47.4	01/09/2025	3	Monthly	166.68	19.98	1.67	0	186.66	553.98	0	ACTIVE	4	0</div><div class="line">LOA-ZYAVR82E	12/08/2025	12/08/2025	500	45	01/09/2025	3	Monthly	500	45.63	5	45.62	545.62	551.24	0	CLOSED	0	0</div><div class="line">LOA-8TL7817S	12/08/2025	12/08/2025	500	46.8	01/09/2025	3	Monthly	166.71	18.04	1.67	0	184.75	553.3	0	ACTIVE	4	0</div><div class="line">LOA-RX4B726J	12/08/2025	12/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	32.22	3.33	0	365.55	553.98	0	ACTIVE	0	0</div><div class="line">LOA-7LJVAKMX	12/08/2025	12/08/2025	500	47.4	01/09/2025	3	Monthly	333.36	32.22	3.33	0	365.58	553.98	0	ACTIVE	0	0</div><div class="line">LOA-U24G2GVF	12/08/2025	12/08/2025	500	45	01/09/2025	3	Monthly	500	44.38	5	44.37	544.37	551.25	0	CLOSED	0	0</div><div class="line">LOA-VYDZDX1N	12/08/2025	12/08/2025	500	45.6	01/09/2025	3	Monthly	333.33	30.87	3.33	0	364.2	551.93	0	ACTIVE	0	0</div><div class="line">LOA-6UVCG2DY	12/08/2025	12/08/2025	500	47.76	01/09/2025	3	Monthly	333.46	32.49	3.33	0	365.95	554.39	0	ACTIVE	0	0</div><div class="line">LOAEPFU9DMCZQ48F3K	12/08/2025	12/08/2025	500	45	01/09/2025	3	Monthly	333.38	32.92	0.83	0	366.3	551.25	0	ACTIVE	0	0</div><div class="line">LOA-7CUB9824	12/08/2025	12/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	31.77	3.33	0	365.1	552.65	0	ACTIVE	0	0</div><div class="line">LOA-5JNJ4N2Q	10/08/2025	11/08/2025	500	45.6	01/09/2025	3	Monthly	333.33	31.29	3.33	0	364.62	552.56	0	ACTIVE	0	0</div><div class="line">LOA-3PYK3FZ2	10/08/2025	11/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	32.66	3.33	0	365.99	554.64	0	ACTIVE	0	0</div><div class="line">LOA-1J4YZHG6	10/08/2025	11/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	32.2	3.33	0	365.53	553.94	0	ACTIVE	0	0</div><div class="line">LOA-4Z68TRV9	10/08/2025	11/08/2025	500	47.4	01/09/2025	3	Monthly	500	48.98	5	48.99	548.99	554.64	0	CLOSED	0	0</div><div class="line">LOA-TFR95ESF	10/08/2025	11/08/2025	500	47.4	01/09/2025	3	Monthly	500	48.98	5	48.99	548.99	554.64	0	CLOSED	0	0</div><div class="line">LOA-2KFPUDNM	10/08/2025	11/08/2025	500	46.8	01/09/2025	3	Monthly	166.67	17.3	1.67	0	183.97	553.95	0	ACTIVE	4	0</div><div class="line">LOA-UZLDD75G	10/08/2025	11/08/2025	500	46.8	01/09/2025	3	Monthly	166.67	17.3	1.67	0	183.97	553.94	0	ACTIVE	4	0</div><div class="line">LOA-VV43GJDL	10/08/2025	11/08/2025	500	46.2	01/09/2025	3	Monthly	500	30.08	5	0	530.08	553.25	0	ACTIVE	0	0</div><div class="line">LOAEPF25GQEUS6UN3B	10/08/2025	11/08/2025	500	45	01/09/2025	3	Monthly	500	54.64	1.25	54.65	554.65	551.87	0	CLOSED	22	0</div><div class="line">LOA-APSNCVJ5	10/08/2025	11/08/2025	500	45.6	01/09/2025	3	Monthly	500	46.93	5	46.94	546.94	552.56	0	CLOSED	0	0</div><div class="line">LOA-BEQC3FS5	10/08/2025	11/08/2025	500	48	01/09/2025	3	Monthly	333.33	33.12	3.33	0	366.45	555.33	0	ACTIVE	0	0</div><div class="line">LOA-NYXUAC6B	10/08/2025	11/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	32.66	3.33	0	365.99	554.64	0	ACTIVE	0	0</div><div class="line">LOA-7NAEFJFC	10/08/2025	11/08/2025	500	48	01/09/2025	3	Monthly	500	31.44	5	0	531.44	555.33	0	ACTIVE	0	0</div><div class="line">LOA-NTT8813R	09/08/2025	10/08/2025	500	47.4	01/09/2025	3	Monthly	333.34	33.1	3.33	0	366.43	555.3	0	ACTIVE	0	0</div><div class="line">LOA-DG1TE679	09/08/2025	10/08/2025	500	47.4	01/09/2025	3	Monthly	333.47	33.33	3.34	0	366.81	555.3	0	ACTIVE	0	0</div><div class="line">LOA-CS2ZZH1T	09/08/2025	10/08/2025	500	47.4	01/09/2025	3	Monthly	333.34	33.1	3.33	0	366.43	555.3	0	ACTIVE	0	0</div><div class="line">LOA-G32XRKTT	09/08/2025	10/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.1	3.33	0	366.43	555.3	0	ACTIVE	0	0</div><div class="line">LOA-BN378L54	09/08/2025	10/08/2025	500	46.2	01/09/2025	3	Monthly	500	48.26	5	48.26	548.26	553.9	0	CLOSED	0	0</div><div class="line">LOA-GN6J2TC3	09/08/2025	10/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.1	3.33	0	366.43	555.3	0	ACTIVE	0	0</div><div class="line">LOA-L3PY7HD9	09/08/2025	09/08/2025	500	46.8	01/09/2025	2	Monthly	500	30.15	5	30.15	530.15	534.45	0	CLOSED	0	0</div><div class="line">LOA-3U4J2FV6	09/08/2025	09/08/2025	500	47.4	01/09/2025	2	Monthly	500	29.89	5	29.89	529.89	534.89	0	CLOSED	0	0</div><div class="line">LOA-H9CKSAJ7	09/08/2025	09/08/2025	500	46.8	01/09/2025	2	Monthly	500	29.45	5	29.45	529.45	534.45	0	CLOSED	0	0</div><div class="line">LOA-8479J63P	09/08/2025	09/08/2025	500	47.76	01/09/2025	2	Monthly	500	30.16	5	30.16	530.16	535.15	0	CLOSED	0	0</div><div class="line">LOA-TCNLMNCK	09/08/2025	09/08/2025	500	46.8	01/09/2025	2	Monthly	500	29.45	5	29.45	529.45	534.45	0	CLOSED	0	0</div><div class="line">LOA-16UQ6KRV	09/08/2025	09/08/2025	500	46.8	01/09/2025	2	Monthly	500	29.45	5	29.45	529.45	534.45	0	CLOSED	0	0</div><div class="line">LOA-6BZ1PBQR	09/08/2025	09/08/2025	500	46.2	01/09/2025	2	Monthly	500	29.01	5	29.01	529.01	534	0	CLOSED	0	0</div><div class="line">LOA-51TEVLXA	09/08/2025	09/08/2025	500	47.76	01/09/2025	2	Monthly	500	30.16	5	30.16	530.16	535.15	0	CLOSED	0	0</div><div class="line">LOA-UJJL3K3H	09/08/2025	09/08/2025	500	47.76	01/09/2025	3	Monthly	166.67	17.89	1.67	0	184.56	555.72	0	ACTIVE	4	0</div><div class="line">LOA-VK13SKQQ	09/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	33.07	3.33	0	366.4	554.59	0	ACTIVE	0	0</div><div class="line">LOA-7M96LLZK	09/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	500	0.65	0	0.65	500.65	554.6	0	CLOSED	0	0</div><div class="line">LOA-HHQY8R8K	09/08/2025	09/08/2025	500	35.88	01/09/2025	3	Monthly	500	35.41	5	35.41	535.41	541.86	0	CLOSED	0	0</div><div class="line">LOA-USER6QT5	09/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.54	3.33	0	366.87	555.3	0	ACTIVE	0	0</div><div class="line">LOA-N6UGXSUA	09/08/2025	09/08/2025	500	48	01/09/2025	3	Monthly	166.67	17	1.67	0	183.67	556	0	ACTIVE	4	0</div><div class="line">LOA-PH254CM8	09/08/2025	09/08/2025	500	46.2	01/09/2025	3	Monthly	333.36	32.84	3.33	0	366.2	553.89	0	ACTIVE	0	0</div><div class="line">LOA-DZZKKFKL	09/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.78	3.33	0	367.11	555.3	0	ACTIVE	0	0</div><div class="line">LOA-9NZPXCSZ	09/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	500	49.6	5	49.6	549.6	554.6	0	CLOSED	0	0</div><div class="line">LOA-S9HT717U	09/08/2025	09/08/2025	500	48	01/09/2025	3	Monthly	166.67	19.72	1.67	0	186.4	556	0	ACTIVE	0	0</div><div class="line">LOA-U8E89GVV	09/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	33.07	3.33	0	366.4	554.6	0	ACTIVE	0	0</div><div class="line">LOA-CHRPF7LH	09/08/2025	09/08/2025	500	48	01/09/2025	3	Monthly	333.33	34	3.33	0	367.33	555.99	0	ACTIVE	0	0</div><div class="line">LOA-M8CVH6K9	09/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	35.41	3.33	0	368.73	554.59	0	ACTIVE	0	0</div><div class="line">LOA-XAVGT15F	08/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	166.67	18.71	1.67	0	185.38	555.25	0	ACTIVE	4	0</div><div class="line">LOAEPF2AM934B1308K	08/08/2025	09/08/2025	500	45	01/09/2025	3	Monthly	333.34	34.17	0.83	0	367.5	553.12	0	ACTIVE	0	0</div><div class="line">LOA-FJEHTZAJ	08/08/2025	09/08/2025	500	47.76	01/09/2025	3	Monthly	333.33	33.82	3.33	0	367.15	556.38	0	ACTIVE	0	0</div><div class="line">LOA-FN66GDV2	08/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	34.03	3.33	0	367.35	555.96	0	ACTIVE	0	0</div><div class="line">LOA-LPDG34DY	08/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.38	33.54	3.33	0	366.92	555.95	0	ACTIVE	0	0</div><div class="line">LOA-1AQ3A1DP	08/08/2025	09/08/2025	500	45.6	01/09/2025	3	Monthly	500	48.2	5	48.2	548.2	553.83	0	CLOSED	0	0</div><div class="line">LOA-678A7LL8	08/08/2025	09/08/2025	500	35.88	01/09/2025	3	Monthly	333.33	24.58	3.33	0	357.91	542.35	0	ACTIVE	0	0</div><div class="line">LOA-TZY3GS6C	08/08/2025	09/08/2025	500	46.2	01/09/2025	3	Monthly	166.67	18.44	1.67	0	185.11	554.54	0	ACTIVE	4	0</div><div class="line">LOA-G7JCKZQG	08/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	33.07	3.33	0	366.4	555.25	0	ACTIVE	0	0</div><div class="line">LOA-Y1S8QZX7	08/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	35.5	3.33	0	368.83	555.96	0	ACTIVE	0	0</div><div class="line">LOA-K75F5FDF	08/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.38	33.54	3.33	0	366.91	555.95	0	ACTIVE	0	0</div><div class="line">LOA-SBTK7Y1G	08/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	500	34.78	5	0	534.78	555.25	0	ACTIVE	0	0</div><div class="line">LOA-CK5SNBVY	08/08/2025	09/08/2025	500	45.6	01/09/2025	3	Monthly	333.33	32.14	3.33	0	365.47	553.83	0	ACTIVE	0	0</div><div class="line">LOA-JFYXK6ZV	08/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.54	3.33	0	366.87	555.95	0	ACTIVE	0	0</div><div class="line">LOA-FD286T9L	08/08/2025	09/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.53	3.34	0	366.87	555.96	0	ACTIVE	0	0</div><div class="line">LOA-NQK9HE7B	08/08/2025	09/08/2025	500	47.76	01/09/2025	3	Monthly	166.67	16.9	1.67	0	183.57	556.38	0	ACTIVE	4	0</div><div class="line">LOA-YA9CYKTG	08/08/2025	09/08/2025	500	46.8	01/09/2025	3	Monthly	333.39	33.07	3.33	0	366.46	555.24	0	ACTIVE	0	0</div><div class="line">LOA-HXE94M74	08/08/2025	09/08/2025	500	45.6	01/09/2025	3	Monthly	500	48.2	5	48.2	548.2	553.83	0	CLOSED	0	0</div><div class="line">LOA-X8CQMT5C	08/08/2025	08/08/2025	500	47.76	01/09/2025	3	Monthly	333.34	34.26	3.33	0	367.6	556.38	0	ACTIVE	0	0</div><div class="line">LOA-LD2UB9BM	08/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	34.96	3.33	0	368.29	555.96	0	ACTIVE	0	0</div><div class="line">LOA-BZJ6P3HR	08/08/2025	08/08/2025	500	47.52	01/09/2025	3	Monthly	272.13	35.17	2.72	0	307.3	556.1	0	ACTIVE	4	0</div><div class="line">LOA-2AJSEESP	08/08/2025	08/08/2025	500	46.8	01/09/2025	3	Monthly	166.67	17.47	1.67	0	184.14	555.24	0	ACTIVE	4	0</div><div class="line">LOA-A9ZCJU5Q	08/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.98	3.33	0	367.31	555.95	0	ACTIVE	0	0</div><div class="line">LOA-UF1XF313	08/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.98	3.33	0	367.31	555.96	0	ACTIVE	0	0</div><div class="line">LOA-3HK9BUYU	07/08/2025	08/08/2025	500	46.8	01/09/2025	4	Monthly	250.04	31.63	5.75	0	281.66	575.4	0	ACTIVE	0	0</div><div class="line">LOA-2739K24L	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	166.7	19.78	1.67	0	186.48	556.61	0	ACTIVE	4	0</div><div class="line">LOA-H1DLXBHR	07/08/2025	08/08/2025	500	46.8	01/09/2025	3	Monthly	333.41	33.49	3.34	0	366.91	555.9	0	ACTIVE	0	0</div><div class="line">LOA-BFA3HFFP	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	500	50.96	5	50.96	550.96	556.61	0	CLOSED	0	0</div><div class="line">LOA-4YCGYC6N	07/08/2025	08/08/2025	500	47.76	01/09/2025	3	Monthly	500	51.38	5	51.38	551.38	557.04	0	CLOSED	0	0</div><div class="line">LOA-BD3RVEKH	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	35.2	3.33	0	368.53	556.61	0	ACTIVE	0	0</div><div class="line">LOA-R13FKDFN	07/08/2025	08/08/2025	500	46.8	01/09/2025	3	Monthly	333.42	33.99	3.33	0	367.4	555.89	0	ACTIVE	0	0</div><div class="line">LOA-FUT2ZSQC	07/08/2025	08/08/2025	500	45	01/09/2025	3	Monthly	333.33	32.09	3.33	0	365.42	553.75	0	ACTIVE	0	0</div><div class="line">LOA-TYQQ5CHE	07/08/2025	08/08/2025	500	46.8	01/09/2025	3	Monthly	500	45.23	5	45.24	545.24	555.9	0	CLOSED	0	0</div><div class="line">LOA-E37A4VGZ	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.98	3.33	0	367.31	556.61	0	ACTIVE	0	0</div><div class="line">LOA-7DEQQH96	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	373.39	33.81	3.74	0	407.21	556.61	0	ACTIVE	0	0</div><div class="line">LOA-QB53XKYR	07/08/2025	08/08/2025	250	47.76	01/09/2025	3	Monthly	166.67	17.12	1.67	0	183.79	278.52	0	ACTIVE	0	0</div><div class="line">LOA-FDMF7YNT	07/08/2025	08/08/2025	500	46.2	01/09/2025	3	Monthly	500	50.97	5	50.97	550.97	555.18	0	CLOSED	0	0</div><div class="line">LOA-Q5SGPF2E	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	166.67	16.98	1.67	0	183.65	556.61	0	ACTIVE	4	0</div><div class="line">LOA-RQXN8ZTZ	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	333.34	33.98	3.33	0	367.31	556.61	0	ACTIVE	0	0</div><div class="line">LOA-YV2FYMN5	07/08/2025	08/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	33.98	3.33	0	367.31	556.61	0	ACTIVE	0	0</div><div class="line">LOA-KQ54MU6F	07/08/2025	07/08/2025	500	45.6	01/09/2025	6	Monthly	166.68	32.58	5	0	199.25	612.72	0	ACTIVE	0	0</div><div class="line">LOAEPFG9CVXDQDHK98	07/08/2025	07/08/2025	500	45.6	01/09/2025	5	Monthly	0	0	0	0	0	593.1	500	CANCELLED	0	0</div><div class="line">LOA-REF9GS9A	07/08/2025	07/08/2025	500	46.8	01/09/2025	6	Monthly	500.01	47.38	15	47.39	547.39	615.71	0	CLOSED	0	0</div><div class="line">LOA-2XEE7K1A	07/08/2025	07/08/2025	500	46.2	01/09/2025	5	Monthly	100.01	16.82	2.5	0	116.84	594.31	0	ACTIVE	0	0</div><div class="line">LOA-S6KYDQR2	07/08/2025	07/08/2025	500	47.76	01/09/2025	2	Monthly	500	31.48	5	31.48	531.48	536.48	0	CLOSED	0	0</div><div class="line">LOA-JNDTYRYE	07/08/2025	07/08/2025	250	47.4	01/09/2025	3	Monthly	250	25.81	2.5	25.81	275.81	278.3	0	CLOSED	0	0</div><div class="line">LOA-UQAH2DNQ	06/08/2025	06/08/2025	500	45.6	01/09/2025	3	Monthly	333.34	33.4	3.34	0	366.74	555.1	0	ACTIVE	0	0</div><div class="line">LOA-JAGAZANL	06/08/2025	06/08/2025	500	47.4	01/09/2025	3	Monthly	333.35	34.86	3.33	0	368.2	557.27	0	ACTIVE	0	0</div><div class="line">LOA-QCZP2U8J	05/08/2025	06/08/2025	500	46.8	01/09/2025	3	Monthly	333.38	34.37	3.33	0	367.74	557.2	0	ACTIVE	0	0</div><div class="line">LOA-9CH586DM	05/08/2025	06/08/2025	500	46.2	01/09/2025	3	Monthly	166.67	16.94	1.67	0	183.61	556.46	0	ACTIVE	4	0</div><div class="line">LOA-K86VFCEH	05/08/2025	06/08/2025	500	48	01/09/2025	3	Monthly	500	47.56	5	47.56	547.56	558.67	0	CLOSED	0	0</div><div class="line">LOA-YFD9GRX8	05/08/2025	06/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	34.61	3.33	0	367.94	557.2	0	ACTIVE	0	0</div><div class="line">LOA-KJ4JJN4G	05/08/2025	06/08/2025	500	47.76	01/09/2025	3	Monthly	166.67	17.57	1.67	0	184.24	558.37	0	ACTIVE	4	0</div><div class="line">LOA-PNZF3VH9	05/08/2025	06/08/2025	500	46.8	01/09/2025	3	Monthly	500	32.7	5	0	532.7	557.2	0	ACTIVE	0	0</div><div class="line">LOA-V2HV4TVT	05/08/2025	06/08/2025	500	47.76	01/09/2025	3	Monthly	166.67	17.57	1.67	0	184.24	558.37	0	ACTIVE	0	0</div><div class="line">LOA-M7DZGZGQ	05/08/2025	06/08/2025	500	46.8	01/09/2025	3	Monthly	333.39	40.17	3.34	0	373.56	557.2	0	ACTIVE	0	0</div><div class="line">LOA-Q3AGPP71	05/08/2025	06/08/2025	500	47.4	01/09/2025	3	Monthly	333.33	34.85	3.33	0	368.18	557.93	0	ACTIVE	0	0</div><div class="line">LOA-P4NQYT7R	05/08/2025	05/08/2025	500	35.88	01/09/2025	3	Monthly	333.34	25.91	3.33	0	359.24	544.35	0	ACTIVE	0	0</div><div class="line">LOA-178RH78G	05/08/2025	05/08/2025	500	48	01/09/2025	3	Monthly	333.33	35.78	3.33	0	369.11	558.66	0	ACTIVE	0	0</div><div class="line">LOA-RENETDJD	05/08/2025	05/08/2025	500	47.4	01/09/2025	3	Monthly	333.34	35.29	3.33	0	368.62	558.59	0	ACTIVE	0	0</div><div class="line">LOA-RHQJ5UN1	05/08/2025	05/08/2025	500	48	01/09/2025	3	Monthly	333.34	35.78	3.33	0	369.11	558.67	0	ACTIVE	0	0</div><div class="line">LOA-AE397NP9	05/08/2025	05/08/2025	500	48	01/09/2025	3	Monthly	333.33	35.78	3.33	0	369.11	558.66	0	ACTIVE	0	0</div><div class="line">LOA-HMHG7GRQ	05/08/2025	05/08/2025	500	48	01/09/2025	3	Monthly	333.33	35.78	3.33	0	369.11	558.66	0	ACTIVE	0	0</div><div class="line">LOA-ZH9TLUJ4	05/08/2025	05/08/2025	500	48	01/09/2025	3	Monthly	333.33	35.78	3.33	0	369.11	558.66	0	ACTIVE	0	0</div><div class="line">LOA-PT5YAJBC	05/08/2025	05/08/2025	500	35.88	01/09/2025	3	Monthly	333.33	25.91	3.33	0	359.24	543.85	0	ACTIVE	0	0</div><div class="line">LOA-X5ZZHJEQ	03/08/2025	04/08/2025	500	46.8	01/09/2025	3	Monthly	333.33	35.24	3.33	0	368.57	559.15	0	ACTIVE	0	0</div><div class="line">LOA-3CTKMLU2	03/08/2025	04/08/2025	500	46.8	01/09/2025	3	Monthly	500	52.85	5	52.85	552.85	559.15	0	CLOSED	0	0</div><div class="line">LOA-U8B6GX37	03/08/2025	03/08/2025	500	46.8	01/09/2025	3	Monthly	166.67	21.98	1.67	0	188.65	559.15	0	ACTIVE	4	0</div><div class="line">LOA-H7PU5K5P	03/08/2025	03/08/2025	500	46.2	01/09/2025	3	Monthly	333.33	35.17	3.33	0	368.5	558.39	0	ACTIVE	0	0</div><div class="line">LOA-TZMF6ADJ	02/08/2025	03/08/2025	500	48	01/09/2025	3	Monthly	333.34	36.67	3.33	0	370	560.67	0	ACTIVE	0	0</div><div class="line">LOA-XLALZBGN	02/08/2025	03/08/2025	500	48	01/09/2025	3	Monthly	333.33	36.67	3.33	0	370	560.66	0	ACTIVE	0	0</div><div class="line">LOA-KP18UB76	02/08/2025	03/08/2025	500	47.76	01/09/2025	3	Monthly	333.48	36.71	3.34	0	370.19	560.36	0	ACTIVE	0	0</div><div class="line">LOA-ZM47HLUE	02/08/2025	03/08/2025	500	47.76	01/09/2025	3	Monthly	333.33	36.47	3.33	0	369.8	561.02	0	ACTIVE	0	0</div><div class="line">LOA-HB48YDXU	29/07/2025	30/07/2025	500	47.4	01/09/2025	12	Monthly	145.14	31.56	8.71	0	176.7	742.9	0	ACTIVE	0	0</div><div class="line">LOA-LUXY9CXT	29/07/2025	30/07/2025	500	48	01/09/2025	12	Monthly	83.33	35.78	5	0	119.11	746	0	ACTIVE	0	0</div><div class="line">LOA-P2V2B6EC	29/07/2025	30/07/2025	500	47.4	01/09/2025	12	Monthly	83.34	35.27	5	0	118.61	742.95	0	ACTIVE	0	0</div><div class="line">LOA-7A4Y37YV	29/07/2025	30/07/2025	500	45	01/09/2025	12	Monthly	83.33	33.23	5	0	116.56	730.6	0	ACTIVE	0	0</div><div class="line">LOA-1XHRP1J6	10/07/2025	11/07/2025	250	47.4	01/08/2025	2	Monthly	250	14.62	2.5	14.62	264.62	267.44	0	CLOSED	0	0</div><div class="line">LOA-SGJMQSEK	10/07/2025	11/07/2025	500	47.4	01/08/2025	2	Monthly	500	29.24	5	29.24	529.24	534.89	0	CLOSED	0	0</div><div class="line">LOA-TX1EKKRU	10/07/2025	11/07/2025	500	47.76	01/08/2025	3	Monthly	500	52.09	5	52.09	552.09	555.06	0	CLOSED	9	0</div><div class="line">LOA-V955ZSD9	10/07/2025	11/07/2025	500	47.76	01/08/2025	3	Monthly	500	49.39	5	49.4	549.4	555.06	0	CLOSED	0	0</div><div class="line">LOA-7LEXJ7CH	10/07/2025	11/07/2025	500	47.4	01/08/2025	3	Monthly	500	48.98	5	48.98	548.98	554.64	0	CLOSED	0	0</div><div class="line">LOA-4PDSZS66	10/07/2025	11/07/2025	500	47.76	01/08/2025	3	Monthly	500	50.88	5	50.88	550.88	555.05	0	CLOSED	0	0</div><div class="line">LOA-DCSG7RUH	10/07/2025	11/07/2025	500	47.4	01/08/2025	3	Monthly	500	48.98	5	48.99	548.99	554.64	0	CLOSED	0	0</div><div class="line">LOA-SFTPLTPJ	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	333.37	34.36	3.33	0	367.73	553.95	0	ACTIVE	4	0</div><div class="line">LOA-TSAFEGZN	10/07/2025	11/07/2025	500	46.8	01/08/2025	2	Monthly	500	28.8	5	28.8	528.8	534.45	0	CLOSED	0	0</div><div class="line">LOA-5SEQUUA5	10/07/2025	11/07/2025	500	47.76	01/08/2025	3	Monthly	333.33	36.13	3.33	0	369.46	555.05	0	ACTIVE	4	0</div><div class="line">LOA-5SRT3C6N	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	166.67	18.74	1.67	0	185.41	553.95	0	ACTIVE	34	0</div><div class="line">LOA-XPFNK542	10/07/2025	11/07/2025	500	47.76	01/08/2025	3	Monthly	500	49.64	5	49.64	549.64	555.05	0	CLOSED	0	0</div><div class="line">LOA-Z41BPPT3	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	48.3	5	48.3	548.3	553.94	0	CLOSED	0	0</div><div class="line">LOA-7NUY4VV8	10/07/2025	11/07/2025	500	47.4	01/08/2025	2	Monthly	500	29.59	5	29.59	529.59	534.89	0	CLOSED	1	0</div><div class="line">LOA-RQHD5EY7	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	47.15	5	47.15	547.15	553.95	0	CLOSED	0	0</div><div class="line">LOA-6379PEX9	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	47.2	5	47.2	547.2	553.95	0	CLOSED	0	0</div><div class="line">LOA-27SRN978	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	43.75	5	43.75	543.75	553.95	0	CLOSED	0	0</div><div class="line">LOA-FMNFQUFB	10/07/2025	11/07/2025	500	47.76	01/08/2025	3	Monthly	500	49.39	5	49.39	549.39	555.05	0	CLOSED	0	0</div><div class="line">LOA-J8NUPZ73	10/07/2025	11/07/2025	500	47.4	01/08/2025	3	Monthly	500	48.98	5	48.98	548.98	554.64	0	CLOSED	0	0</div><div class="line">LOA-RYVS28JP	10/07/2025	11/07/2025	500	40.8	01/08/2025	3	Monthly	500	41.67	5	41.67	541.67	547.03	0	CLOSED	0	0</div><div class="line">LOA-T121SXVG	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	48.3	5	48.3	548.3	553.95	0	CLOSED	0	0</div><div class="line">LOA-MY6HXLEN	10/07/2025	11/07/2025	500	46.2	01/08/2025	2	Monthly	500	28.37	5	28.37	528.37	534	0	CLOSED	0	0</div><div class="line">LOA-3KVPB8RY	10/07/2025	11/07/2025	500	42	01/08/2025	3	Monthly	500	43.52	5	43.52	543.52	548.41	0	CLOSED	0	0</div><div class="line">LOA-DPLX92YM	10/07/2025	11/07/2025	500	47.4	01/08/2025	3	Monthly	500	48.98	5	48.98	548.98	554.64	0	CLOSED	0	0</div><div class="line">LOA-2G5CZCAB	10/07/2025	11/07/2025	500	47.4	01/08/2025	3	Monthly	500	48.98	5	48.99	548.99	554.64	0	CLOSED	0	0</div><div class="line">LOA-URM7L184	10/07/2025	11/07/2025	500	47.4	01/08/2025	2	Monthly	500	29.23	5	29.23	529.23	534.89	0	CLOSED	0	0</div><div class="line">LOA-53SMVYLK	10/07/2025	10/07/2025	250	47.4	01/08/2025	2	Monthly	250	14.79	2.5	14.79	264.79	267.44	0	CLOSED	0	0</div><div class="line">LOA-P1KMU5VJ	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	48.3	5	48.3	548.3	553.94	0	CLOSED	0	0</div><div class="line">LOA-J1SZV9VK	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	333.34	32.44	3.33	0	365.78	553.95	0	ACTIVE	4	0</div><div class="line">LOA-S6R1UKAV	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	48.3	5	48.3	548.3	553.95	0	CLOSED	0	0</div><div class="line">LOA-U2QRC2CL	10/07/2025	11/07/2025	500	35.88	01/08/2025	3	Monthly	500	35.86	5	35.86	535.86	541.36	0	CLOSED	0	0</div><div class="line">LOA-S33MAPSH	10/07/2025	11/07/2025	500	45	01/08/2025	3	Monthly	333.34	30.84	3.33	0	364.17	551.87	0	ACTIVE	4	0</div><div class="line">LOA-43RC6BA2	10/07/2025	11/07/2025	500	46.2	01/08/2025	3	Monthly	500	49.27	5	49.27	549.27	553.25	0	CLOSED	0	0</div><div class="line">LOA-4FY44FUL	10/07/2025	11/07/2025	500	46.2	01/08/2025	3	Monthly	500	46.74	5	46.75	546.75	553.26	0	CLOSED	0	0</div><div class="line">LOA-R6GJXXAN	10/07/2025	11/07/2025	500	46.2	01/08/2025	3	Monthly	500	47.62	5	47.62	547.62	553.26	0	CLOSED	0	0</div><div class="line">LOA-MRKCH9Q9	10/07/2025	11/07/2025	500	46.2	01/08/2025	3	Monthly	500	42.98	5	42.98	542.98	553.26	0	CLOSED	0	0</div><div class="line">LOA-DY13RYT7	10/07/2025	11/07/2025	500	45.6	01/08/2025	3	Monthly	500	47.63	5	47.64	547.64	552.57	0	CLOSED	0	0</div><div class="line">LOA-MVSM4N66	10/07/2025	11/07/2025	500	47.52	01/08/2025	3	Monthly	500	58.16	5	58.16	558.16	554.78	0	CLOSED	0	0</div><div class="line">LOA-E9BEVLKQ	10/07/2025	11/07/2025	500	46.8	01/08/2025	3	Monthly	500	49.02	5	49.02	549.02	553.94	0	CLOSED	0	0</div><div class="line">LOA-J3ATH7FX	10/07/2025	11/07/2025	500	46.2	01/08/2025	3	Monthly	500	48.8	5	48.8	548.8	553.26	0	CLOSED	2	0</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function showSheet(sheetIndex) {
+            // Hide all sheets
+            const sheets = document.querySelectorAll('.sheet-comparison');
+            sheets.forEach(sheet => sheet.classList.remove('active'));
+            
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.sheet-tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected sheet
+            document.getElementById('sheet-' + sheetIndex).classList.add('active');
+            
+            // Mark selected tab as active
+            tabs[sheetIndex].classList.add('active');
+        }
+    </script>
+</body>
+</html>

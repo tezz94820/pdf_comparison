@@ -1,9 +1,9 @@
 """
-Professional PDF Comparison Tool with CSV-Based File Mapping
-Maps dev and prod files using a CSV configuration file
+Professional Excel Comparison Tool with Sheet-by-Sheet Analysis
+Compares Excel files sheet by sheet with merged cell handling
 """
 
-import fitz  # PyMuPDF
+import openpyxl
 import difflib
 import os
 import csv
@@ -12,68 +12,104 @@ from html import escape
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple, Set
-from collections import Counter
+from collections import OrderedDict
 
 
-class PDFComparator:
-    """Professional PDF comparison with page-by-page analytics."""
+class ExcelComparator:
+    """Professional Excel comparison with sheet-by-sheet analytics."""
     
-    def __init__(self, dev_pdf: str, prod_pdf: str, output_dir: str = "reports"):
-        self.dev_pdf = Path(dev_pdf)
-        self.prod_pdf = Path(prod_pdf)
+    def __init__(self, dev_excel: str, prod_excel: str, output_dir: str = "reports"):
+        self.dev_excel = Path(dev_excel)
+        self.prod_excel = Path(prod_excel)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
         
-        self.dev_pages = []
-        self.prod_pages = []
-        self.page_diffs = []
+        self.dev_sheets = OrderedDict()  # {sheet_name: sheet_data}
+        self.prod_sheets = OrderedDict()
+        self.sheet_diffs = []  # List of diffs for each sheet
         self.analytics = {}
         
-    def extract_text_by_page(self, pdf_path: Path) -> List[str]:
-        """Extract text from each page preserving whitespace and layout."""
-        pages = []
+    def extract_sheet_data(self, excel_path: Path) -> OrderedDict:
+        """
+        Extract data from all sheets, handling merged cells.
+        Returns OrderedDict of {sheet_name: list of row strings}
+        """
+        sheets_data = OrderedDict()
         
         try:
-            with fitz.open(pdf_path) as pdf:
-                for page_num, page in enumerate(pdf, 1):
-                    blocks = page.get_text("dict")["blocks"]
+            workbook = openpyxl.load_workbook(excel_path, data_only=True)
+            
+            for sheet_name in workbook.sheetnames:
+                sheet = workbook[sheet_name]
+                sheet_rows = []
+                
+                # Get merged cell ranges
+                merged_ranges = list(sheet.merged_cells.ranges)
+                
+                # Process each row
+                for row_idx, row in enumerate(sheet.iter_rows(), start=1):
+                    row_data = []
                     
-                    page_content = []
-                    for block in blocks:
-                        if "lines" in block:
-                            for line in block["lines"]:
-                                line_text = ""
-                                for span in line["spans"]:
-                                    line_text += span["text"]
-                                if line_text.strip():
-                                    page_content.append(line_text)
-                    
-                    pages.append("\n".join(page_content) if page_content else "")
+                    for col_idx, cell in enumerate(row, start=1):
+                        # Check if this cell is part of a merged range
+                        cell_value = cell.value
                         
+                        # If cell is merged, get the value from the top-left cell
+                        for merged_range in merged_ranges:
+                            if cell.coordinate in merged_range:
+                                # Get the top-left cell of the merged range
+                                top_left_cell = sheet.cell(
+                                    merged_range.min_row, 
+                                    merged_range.min_col
+                                )
+                                cell_value = top_left_cell.value
+                                break
+                        
+                        # Convert cell value to string
+                        if cell_value is None:
+                            row_data.append("")
+                        elif isinstance(cell_value, (int, float)):
+                            row_data.append(str(cell_value))
+                        else:
+                            row_data.append(str(cell_value))
+                    
+                    # Join row data with tabs (to preserve column structure)
+                    row_string = "\t".join(row_data).rstrip("\t")
+                    
+                    # Only add non-empty rows
+                    if row_string.strip():
+                        sheet_rows.append(row_string)
+                
+                sheets_data[sheet_name] = sheet_rows
+            
+            workbook.close()
+            
         except Exception as e:
-            print(f"❌ Error extracting text from {pdf_path}: {e}")
-            return []
+            print(f"❌ Error extracting data from {excel_path}: {e}")
+            return OrderedDict()
         
-        return pages
+        return sheets_data
     
-    def compare_pages(self):
-        """Compare PDFs page by page and store differences."""
-        max_pages = max(len(self.dev_pages), len(self.prod_pages))
+    def compare_sheets(self):
+        """Compare Excel files sheet by sheet."""
         
-        for page_num in range(max_pages):
-            dev_content = self.dev_pages[page_num] if page_num < len(self.dev_pages) else ""
-            prod_content = self.prod_pages[page_num] if page_num < len(self.prod_pages) else ""
+        # Get all unique sheet names
+        all_sheet_names = set(self.dev_sheets.keys()) | set(self.prod_sheets.keys())
+        
+        for sheet_name in sorted(all_sheet_names):
+            dev_data = self.dev_sheets.get(sheet_name, [])
+            prod_data = self.prod_sheets.get(sheet_name, [])
             
-            dev_lines = dev_content.splitlines()
-            prod_lines = prod_content.splitlines()
-            
+            # Generate diff for this sheet
             differ = difflib.Differ()
-            diff = list(differ.compare(dev_lines, prod_lines))
+            diff = list(differ.compare(dev_data, prod_data))
             
-            self.page_diffs.append({
-                'page_num': page_num + 1,
-                'dev_lines': dev_lines,
-                'prod_lines': prod_lines,
+            self.sheet_diffs.append({
+                'sheet_name': sheet_name,
+                'exists_in_dev': sheet_name in self.dev_sheets,
+                'exists_in_prod': sheet_name in self.prod_sheets,
+                'dev_rows': len(dev_data),
+                'prod_rows': len(prod_data),
                 'diff': diff
             })
     
@@ -85,36 +121,36 @@ class PDFComparator:
         total_changed = 0
         total_unchanged = 0
         
-        for page_diff in self.page_diffs:
-            diff = page_diff['diff']
+        for sheet_diff in self.sheet_diffs:
+            diff = sheet_diff['diff']
             total_added += len([l for l in diff if l.startswith('+ ')])
             total_removed += len([l for l in diff if l.startswith('- ')])
             total_changed += len([l for l in diff if l.startswith('? ')]) // 2
             total_unchanged += len([l for l in diff if l.startswith('  ')])
         
-        dev_text = "\n".join(self.dev_pages)
-        prod_text = "\n".join(self.prod_pages)
+        # Calculate overall similarity
+        dev_text = "\n".join(["\n".join(data) for data in self.dev_sheets.values()])
+        prod_text = "\n".join(["\n".join(data) for data in self.prod_sheets.values()])
         
         matcher = difflib.SequenceMatcher(None, dev_text, prod_text)
-        similarity = matcher.ratio() * 100
+        similarity = matcher.ratio() * 100 if dev_text or prod_text else 100.0
         
-        dev_chars = len(dev_text)
-        prod_chars = len(prod_text)
-        dev_words = len(dev_text.split())
-        prod_words = len(prod_text.split())
+        # Count cells (approximate by counting tabs + 1 per row)
+        dev_cells = sum(row.count('\t') + 1 for sheet in self.dev_sheets.values() for row in sheet)
+        prod_cells = sum(row.count('\t') + 1 for sheet in self.prod_sheets.values() for row in sheet)
         
         analytics = {
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            'dev_file': self.dev_pdf.name,
-            'prod_file': self.prod_pdf.name,
-            'dev_size': self.dev_pdf.stat().st_size if self.dev_pdf.exists() else 0,
-            'prod_size': self.prod_pdf.stat().st_size if self.prod_pdf.exists() else 0,
+            'dev_file': self.dev_excel.name,
+            'prod_file': self.prod_excel.name,
+            'dev_size': self.dev_excel.stat().st_size if self.dev_excel.exists() else 0,
+            'prod_size': self.prod_excel.stat().st_size if self.prod_excel.exists() else 0,
             'similarity_percent': round(similarity, 2),
             'difference_percent': round(100 - similarity, 2),
-            'total_pages': {
-                'dev': len(self.dev_pages),
-                'prod': len(self.prod_pages),
-                'max': max(len(self.dev_pages), len(self.prod_pages))
+            'total_sheets': {
+                'dev': len(self.dev_sheets),
+                'prod': len(self.prod_sheets),
+                'max': max(len(self.dev_sheets), len(self.prod_sheets))
             },
             'changes': {
                 'added': total_added,
@@ -122,31 +158,33 @@ class PDFComparator:
                 'modified': total_changed,
                 'unchanged': total_unchanged
             },
-            'characters': {
-                'dev': dev_chars,
-                'prod': prod_chars,
-                'diff': abs(dev_chars - prod_chars)
-            },
-            'words': {
-                'dev': dev_words,
-                'prod': prod_words,
-                'diff': abs(dev_words - prod_words)
+            'cells': {
+                'dev': dev_cells,
+                'prod': prod_cells,
+                'diff': abs(dev_cells - prod_cells)
             }
         }
         
         return analytics
     
     def generate_html_report(self) -> str:
-        """Generate professional HTML report with page-by-page comparison."""
+        """Generate professional HTML report with sheet-by-sheet comparison."""
         
         a = self.analytics
+        
+        # Generate sheet navigation buttons
+        sheet_nav = ""
+        for idx, sheet_diff in enumerate(self.sheet_diffs):
+            sheet_name = sheet_diff['sheet_name']
+            active_class = "active" if idx == 0 else ""
+            sheet_nav += f'<button class="sheet-tab {active_class}" onclick="showSheet({idx})">{escape(sheet_name)}</button>'
         
         html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Comparison Report - {a['dev_file']} vs {a['prod_file']}</title>
+    <title>Excel Comparison Report - {a['dev_file']} vs {a['prod_file']}</title>
     <style>
         * {{
             margin: 0;
@@ -156,7 +194,7 @@ class PDFComparator:
         
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
             padding: 20px;
             color: #333;
             min-height: 100vh;
@@ -173,7 +211,7 @@ class PDFComparator:
         }}
         
         .header {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
             color: white;
             padding: 40px;
             text-align: center;
@@ -208,7 +246,7 @@ class PDFComparator:
             padding: 25px;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            border-left: 4px solid #667eea;
+            border-left: 4px solid #2ecc71;
             transition: transform 0.2s;
         }}
         
@@ -228,7 +266,7 @@ class PDFComparator:
         .metric-value {{
             font-size: 2em;
             font-weight: 700;
-            color: #667eea;
+            color: #2ecc71;
         }}
         
         .metric-subvalue {{
@@ -301,7 +339,7 @@ class PDFComparator:
         }}
         
         .file-card h3 {{
-            color: #667eea;
+            color: #2ecc71;
             margin-bottom: 15px;
             font-size: 1.2em;
         }}
@@ -326,32 +364,61 @@ class PDFComparator:
             color: #333;
         }}
         
-        .pages-container {{
+        .sheet-navigation {{
+            padding: 30px 40px 20px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            overflow-x: auto;
+            white-space: nowrap;
+        }}
+        
+        .sheet-tabs {{
+            display: inline-flex;
+            gap: 10px;
+        }}
+        
+        .sheet-tab {{
+            padding: 12px 24px;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            color: #333;
+        }}
+        
+        .sheet-tab:hover {{
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }}
+        
+        .sheet-tab.active {{
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+            border-color: #2ecc71;
+        }}
+        
+        .sheets-container {{
             padding: 40px;
             background: #f8f9fa;
         }}
         
-        .page-comparison {{
+        .sheet-comparison {{
+            display: none;
             background: #ffffff;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            margin-bottom: 40px;
             overflow: hidden;
             border: 2px solid #e9ecef;
-            transition: transform 0.2s, box-shadow 0.2s;
         }}
         
-        .page-comparison:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+        .sheet-comparison.active {{
+            display: block;
         }}
         
-        .page-comparison:last-child {{
-            margin-bottom: 0;
-        }}
-        
-        .page-header {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .sheet-header {{
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
             color: white;
             padding: 20px 30px;
             font-size: 1.3em;
@@ -361,28 +428,28 @@ class PDFComparator:
             gap: 10px;
         }}
         
-        .page-content {{
+        .sheet-content {{
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 0;
         }}
         
-        .page-column {{
+        .sheet-column {{
             padding: 30px;
             background: #ffffff;
         }}
         
-        .page-column:first-child {{
+        .sheet-column:first-child {{
             border-right: 2px solid #e9ecef;
             background: #fafbfc;
         }}
         
-        .page-column h3 {{
-            color: #667eea;
+        .sheet-column h3 {{
+            color: #2ecc71;
             margin-bottom: 20px;
             font-size: 1.2em;
             padding-bottom: 10px;
-            border-bottom: 2px solid #667eea;
+            border-bottom: 2px solid #2ecc71;
             position: sticky;
             top: 0;
             background: inherit;
@@ -429,7 +496,7 @@ class PDFComparator:
             padding-left: 12px;
         }}
         
-        .empty-page {{
+        .empty-sheet {{
             color: #6c757d;
             font-style: italic;
             padding: 40px 20px;
@@ -440,11 +507,11 @@ class PDFComparator:
         }}
         
         @media (max-width: 1200px) {{
-            .page-content {{
+            .sheet-content {{
                 grid-template-columns: 1fr;
             }}
             
-            .page-column:first-child {{
+            .sheet-column:first-child {{
                 border-right: none;
                 border-bottom: 2px solid #e9ecef;
             }}
@@ -453,28 +520,12 @@ class PDFComparator:
                 grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             }}
         }}
-        
-        @media print {{
-            body {{
-                background: white;
-                padding: 0;
-            }}
-            
-            .main-container {{
-                box-shadow: none;
-            }}
-            
-            .page-comparison {{
-                page-break-inside: avoid;
-                margin-bottom: 20px;
-            }}
-        }}
     </style>
 </head>
 <body>
     <div class="main-container">
         <div class="header">
-            <h1>📊 PDF Comparison Report</h1>
+            <h1>📊 Excel Comparison Report</h1>
             <div class="subtitle">{a['dev_file']} vs {a['prod_file']} • {a['timestamp']}</div>
         </div>
         
@@ -491,39 +542,39 @@ class PDFComparator:
                 </div>
                 
                 <div class="metric-card">
-                    <div class="metric-label">Total Pages</div>
-                    <div class="metric-value" style="color: #6c757d;">{a['total_pages']['max']}</div>
-                    <div class="metric-subvalue">Dev: {a['total_pages']['dev']} | Prod: {a['total_pages']['prod']}</div>
+                    <div class="metric-label">Total Sheets</div>
+                    <div class="metric-value" style="color: #6c757d;">{a['total_sheets']['max']}</div>
+                    <div class="metric-subvalue">Dev: {a['total_sheets']['dev']} | Prod: {a['total_sheets']['prod']}</div>
                 </div>
                 
                 <div class="metric-card">
-                    <div class="metric-label">Lines Added</div>
+                    <div class="metric-label">Rows Added</div>
                     <div class="metric-value" style="color: #28a745;">{a['changes']['added']}</div>
                     <div class="metric-subvalue">New content in Prod</div>
                 </div>
                 
                 <div class="metric-card">
-                    <div class="metric-label">Lines Removed</div>
+                    <div class="metric-label">Rows Removed</div>
                     <div class="metric-value" style="color: #dc3545;">{a['changes']['removed']}</div>
                     <div class="metric-subvalue">Removed from Dev</div>
                 </div>
                 
                 <div class="metric-card">
-                    <div class="metric-label">Lines Modified</div>
+                    <div class="metric-label">Rows Modified</div>
                     <div class="metric-value" style="color: #ffc107;">{a['changes']['modified']}</div>
                     <div class="metric-subvalue">Content changes</div>
                 </div>
                 
                 <div class="metric-card">
-                    <div class="metric-label">Character Count (Dev)</div>
-                    <div class="metric-value" style="color: #17a2b8;">{a['characters']['dev']:,}</div>
-                    <div class="metric-subvalue">{a['words']['dev']:,} words</div>
+                    <div class="metric-label">Cells (Dev)</div>
+                    <div class="metric-value" style="color: #17a2b8;">{a['cells']['dev']:,}</div>
+                    <div class="metric-subvalue">Approximate count</div>
                 </div>
                 
                 <div class="metric-card">
-                    <div class="metric-label">Character Count (Prod)</div>
-                    <div class="metric-value" style="color: #17a2b8;">{a['characters']['prod']:,}</div>
-                    <div class="metric-subvalue">{a['words']['prod']:,} words</div>
+                    <div class="metric-label">Cells (Prod)</div>
+                    <div class="metric-value" style="color: #17a2b8;">{a['cells']['prod']:,}</div>
+                    <div class="metric-subvalue">Approximate count</div>
                 </div>
             </div>
             
@@ -535,7 +586,7 @@ class PDFComparator:
             
             <div class="file-info">
                 <div class="file-card">
-                    <h3>📄 Dev PDF</h3>
+                    <h3>📄 Dev Excel</h3>
                     <div class="file-detail">
                         <span class="file-label">Filename:</span>
                         <span class="file-value">{a['dev_file']}</span>
@@ -545,13 +596,13 @@ class PDFComparator:
                         <span class="file-value">{a['dev_size'] / 1024:.2f} KB</span>
                     </div>
                     <div class="file-detail">
-                        <span class="file-label">Pages:</span>
-                        <span class="file-value">{a['total_pages']['dev']}</span>
+                        <span class="file-label">Sheets:</span>
+                        <span class="file-value">{a['total_sheets']['dev']}</span>
                     </div>
                 </div>
                 
                 <div class="file-card">
-                    <h3>📄 Prod PDF</h3>
+                    <h3>📄 Prod Excel</h3>
                     <div class="file-detail">
                         <span class="file-label">Filename:</span>
                         <span class="file-value">{a['prod_file']}</span>
@@ -561,8 +612,8 @@ class PDFComparator:
                         <span class="file-value">{a['prod_size'] / 1024:.2f} KB</span>
                     </div>
                     <div class="file-detail">
-                        <span class="file-label">Pages:</span>
-                        <span class="file-value">{a['total_pages']['prod']}</span>
+                        <span class="file-label">Sheets:</span>
+                        <span class="file-value">{a['total_sheets']['prod']}</span>
                     </div>
                 </div>
             </div>
@@ -570,36 +621,47 @@ class PDFComparator:
             <div class="legend">
                 <div class="legend-item">
                     <div class="legend-color legend-added"></div>
-                    <span><strong>Added:</strong> {a['changes']['added']} lines</span>
+                    <span><strong>Added:</strong> {a['changes']['added']} rows</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color legend-removed"></div>
-                    <span><strong>Removed:</strong> {a['changes']['removed']} lines</span>
+                    <span><strong>Removed:</strong> {a['changes']['removed']} rows</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color legend-changed"></div>
-                    <span><strong>Modified:</strong> {a['changes']['modified']} lines</span>
+                    <span><strong>Modified:</strong> {a['changes']['modified']} rows</span>
                 </div>
             </div>
         </div>
         
-        <div class="pages-container">"""
+        <div class="sheet-navigation">
+            <h3 style="margin-bottom: 15px; color: #333;">📑 Sheet Navigation</h3>
+            <div class="sheet-tabs">
+                {sheet_nav}
+            </div>
+        </div>
         
-        for page_data in self.page_diffs:
-            page_num = page_data['page_num']
-            diff = page_data['diff']
+        <div class="sheets-container">"""
+        
+        # Generate comparison for each sheet
+        for idx, sheet_data in enumerate(self.sheet_diffs):
+            sheet_name = sheet_data['sheet_name']
+            diff = sheet_data['diff']
+            active_class = "active" if idx == 0 else ""
             
             html += f"""
-            <div class="page-comparison">
-                <div class="page-header">
-                    📄 Page {page_num}
+            <div class="sheet-comparison {active_class}" id="sheet-{idx}">
+                <div class="sheet-header">
+                    📑 {escape(sheet_name)}
                 </div>
-                <div class="page-content">
-                    <div class="page-column">
-                        <h3>Dev PDF</h3>
+                <div class="sheet-content">
+                    <div class="sheet-column">
+                        <h3>Dev Excel</h3>
                         <div class="content">"""
             
-            if page_num <= len(self.dev_pages) and self.dev_pages[page_num - 1].strip():
+            # Check if sheet exists in dev
+            if sheet_data['exists_in_dev'] and sheet_data['dev_rows'] > 0:
+                # Generate Dev column content for this sheet
                 for line in diff:
                     if line.startswith('- '):
                         html += f'<div class="line removed">{escape(line[2:])}</div>'
@@ -611,15 +673,17 @@ class PDFComparator:
                         content = line[2:] if line.startswith('  ') else line
                         html += f'<div class="line">{escape(content)}</div>'
             else:
-                html += '<div class="empty-page">📭 No content on this page</div>'
+                html += '<div class="empty-sheet">📭 Sheet does not exist in Dev file</div>'
             
             html += """</div>
                     </div>
-                    <div class="page-column">
-                        <h3>Prod PDF</h3>
+                    <div class="sheet-column">
+                        <h3>Prod Excel</h3>
                         <div class="content">"""
             
-            if page_num <= len(self.prod_pages) and self.prod_pages[page_num - 1].strip():
+            # Check if sheet exists in prod
+            if sheet_data['exists_in_prod'] and sheet_data['prod_rows'] > 0:
+                # Generate Prod column content for this sheet
                 for line in diff:
                     if line.startswith('+ '):
                         html += f'<div class="line added">{escape(line[2:])}</div>'
@@ -631,7 +695,7 @@ class PDFComparator:
                         content = line[2:] if line.startswith('  ') else line
                         html += f'<div class="line">{escape(content)}</div>'
             else:
-                html += '<div class="empty-page">📭 No content on this page</div>'
+                html += '<div class="empty-sheet">📭 Sheet does not exist in Prod file</div>'
             
             html += """</div>
                     </div>
@@ -641,6 +705,24 @@ class PDFComparator:
         html += """
         </div>
     </div>
+    
+    <script>
+        function showSheet(sheetIndex) {
+            // Hide all sheets
+            const sheets = document.querySelectorAll('.sheet-comparison');
+            sheets.forEach(sheet => sheet.classList.remove('active'));
+            
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.sheet-tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected sheet
+            document.getElementById('sheet-' + sheetIndex).classList.add('active');
+            
+            // Mark selected tab as active
+            tabs[sheetIndex].classList.add('active');
+        }
+    </script>
 </body>
 </html>"""
         
@@ -649,20 +731,20 @@ class PDFComparator:
     def compare(self) -> Tuple[str, Dict]:
         """Main comparison method - returns report path and analytics."""
         
-        print(f"  🔍 Extracting text from Dev PDF...")
-        self.dev_pages = self.extract_text_by_page(self.dev_pdf)
+        print(f"  🔍 Extracting data from Dev Excel...")
+        self.dev_sheets = self.extract_sheet_data(self.dev_excel)
         
-        print(f"  🔍 Extracting text from Prod PDF...")
-        self.prod_pages = self.extract_text_by_page(self.prod_pdf)
+        print(f"  🔍 Extracting data from Prod Excel...")
+        self.prod_sheets = self.extract_sheet_data(self.prod_excel)
         
-        if not self.dev_pages and not self.prod_pages:
-            print("  ❌ Error: Could not extract text from either PDF")
+        if not self.dev_sheets and not self.prod_sheets:
+            print("  ❌ Error: Could not extract data from either Excel file")
             return "", {}
         
-        print(f"  📄 Dev: {len(self.dev_pages)} pages | Prod: {len(self.prod_pages)} pages")
+        print(f"  📑 Dev: {len(self.dev_sheets)} sheets | Prod: {len(self.prod_sheets)} sheets")
         
-        print(f"  🔄 Comparing pages...")
-        self.compare_pages()
+        print(f"  🔄 Comparing sheets...")
+        self.compare_sheets()
         
         print(f"  📈 Calculating analytics...")
         self.analytics = self.calculate_analytics()
@@ -671,7 +753,7 @@ class PDFComparator:
         html_report = self.generate_html_report()
         
         # Save report with sanitized filename
-        safe_filename = f"{self.dev_pdf.stem}_vs_{self.prod_pdf.stem}".replace(' ', '_')
+        safe_filename = f"{self.dev_excel.stem}_vs_{self.prod_excel.stem}".replace(' ', '_')
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = self.output_dir / f"{safe_filename}_{timestamp}.html"
         
@@ -688,10 +770,10 @@ class PDFComparator:
         return str(output_path.absolute()), self.analytics
 
 
-class BatchPDFComparator:
-    """Batch process PDFs using CSV file mapping."""
+class BatchExcelComparator:
+    """Batch process Excel files using CSV file mapping."""
     
-    def __init__(self, csv_file: str = "file_mapping.csv", 
+    def __init__(self, csv_file: str = "excel_mapping.csv", 
                  dev_folder: str = "dev", 
                  prod_folder: str = "prod", 
                  output_dir: str = "reports"):
@@ -719,18 +801,16 @@ class BatchPDFComparator:
             with open(self.csv_file, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 
-                # Check if required columns exist
                 if reader.fieldnames is None:
                     print("❌ CSV file is empty")
                     return False
                 
-                # Normalize column names (strip whitespace, case-insensitive)
+                # Normalize column names
                 fieldnames = [col.strip().lower() for col in reader.fieldnames]
                 
                 dev_col = None
                 prod_col = None
                 
-                # Find dev and prod columns
                 for col in fieldnames:
                     if 'dev' in col and 'filename' in col:
                         dev_col = reader.fieldnames[fieldnames.index(col)]
@@ -742,7 +822,6 @@ class BatchPDFComparator:
                     print(f"   Found columns: {', '.join(reader.fieldnames)}")
                     return False
                 
-                # Read all rows
                 row_count = 0
                 for row in reader:
                     dev_filename = row[dev_col].strip()
@@ -805,9 +884,8 @@ class BatchPDFComparator:
                 print(f"      ❌ {missing['error']}")
     
     def compare_all(self):
-        """Compare all PDF pairs from CSV mapping."""
+        """Compare all Excel pairs from CSV mapping."""
         
-        # Load CSV
         if not self.load_csv_mappings():
             return
         
@@ -815,21 +893,20 @@ class BatchPDFComparator:
             print("\n❌ No file mappings found in CSV!")
             return
         
-        # Validate files exist
         self.validate_files()
         
         if not self.file_mappings:
             print("\n❌ No valid file pairs to compare!")
             return
         
-        print(f"\n🔄 Starting batch comparison of {len(self.file_mappings)} PDF pairs...\n")
+        print(f"\n🔄 Starting batch comparison of {len(self.file_mappings)} Excel pairs...\n")
         
         for idx, mapping in enumerate(self.file_mappings, 1):
             print(f"[{idx}/{len(self.file_mappings)}] Comparing:")
             print(f"   Dev:  {mapping['dev']}")
             print(f"   Prod: {mapping['prod']}")
             
-            comparator = PDFComparator(
+            comparator = ExcelComparator(
                 str(mapping['dev_path']), 
                 str(mapping['prod_path']), 
                 str(self.output_dir)
@@ -851,7 +928,7 @@ class BatchPDFComparator:
         print("=" * 80)
         print("📊 BATCH COMPARISON SUMMARY")
         print("=" * 80)
-        print(f"\n✅ Successfully compared: {len(self.comparison_results)} PDF pairs")
+        print(f"\n✅ Successfully compared: {len(self.comparison_results)} Excel pairs")
         print(f"📁 Reports saved to: {self.output_dir.absolute()}\n")
         
         for result in self.comparison_results:
@@ -868,8 +945,8 @@ class BatchPDFComparator:
         print(f"\n🌐 Now generating master summary report...")
         
         # Auto-generate summary
-        from generate_summary import SummaryGenerator
-        summary_gen = SummaryGenerator(str(self.output_dir))
+        from excel_generate_summary import ExcelSummaryGenerator
+        summary_gen = ExcelSummaryGenerator(str(self.output_dir))
         summary_path = summary_gen.generate_summary()
         
         if summary_path:
@@ -880,18 +957,16 @@ def main():
     """Main entry point for batch comparison."""
     
     print("="*80)
-    print("🚀 PDF BATCH COMPARISON TOOL (CSV-Based)")
+    print("🚀 EXCEL BATCH COMPARISON TOOL (CSV-Based)")
     print("="*80)
     
-    # Initialize batch comparator with CSV mapping
-    batch = BatchPDFComparator(
-        csv_file="file_mapping.csv",
-        dev_folder="dev",
-        prod_folder="prod",
-        output_dir="reports"
+    batch = BatchExcelComparator(
+        csv_file="input/mappings/excel_file_mapping.csv",
+        dev_folder="input/dev/excel",
+        prod_folder="input/prod/excel",
+        output_dir="reports/excel"
     )
     
-    # Run comparison
     batch.compare_all()
     
     print("\n" + "="*80)
