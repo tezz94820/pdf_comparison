@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Comparison Report - pdf1.pdf vs pdf1.pdf</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .main-container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            margin-bottom: 40px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .header .subtitle {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+        
+        .analytics-dashboard {
+            padding: 40px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-left: 4px solid #667eea;
+            transition: transform 0.2s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .metric-label {
+            font-size: 0.9em;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .metric-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .metric-subvalue {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        
+        .similarity-bar {
+            width: 100%;
+            height: 40px;
+            background: #e9ecef;
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+            margin: 20px 0;
+        }
+        
+        .similarity-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            transition: width 1s ease;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        
+        .legend-added { background: #d4edda; }
+        .legend-removed { background: #f8d7da; }
+        .legend-changed { background: #fff3cd; }
+        
+        .file-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .file-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .file-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .file-detail {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .file-detail:last-child {
+            border-bottom: none;
+        }
+        
+        .file-label {
+            color: #6c757d;
+        }
+        
+        .file-value {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .pages-container {
+            padding: 40px;
+            background: #f8f9fa;
+        }
+        
+        .page-comparison {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 40px;
+            overflow: hidden;
+            border: 2px solid #e9ecef;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .page-comparison:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+        }
+        
+        .page-comparison:last-child {
+            margin-bottom: 0;
+        }
+        
+        .page-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            font-size: 1.3em;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .page-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+        }
+        
+        .page-column {
+            padding: 30px;
+            background: #ffffff;
+        }
+        
+        .page-column:first-child {
+            border-right: 2px solid #e9ecef;
+            background: #fafbfc;
+        }
+        
+        .page-column h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+            position: sticky;
+            top: 0;
+            background: inherit;
+            z-index: 5;
+        }
+        
+        .content {
+            font-family: 'Courier New', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .line {
+            padding: 6px 10px;
+            margin: 2px 0;
+            border-radius: 4px;
+            transition: all 0.15s;
+        }
+        
+        .line:hover {
+            opacity: 0.85;
+        }
+        
+        .added {
+            background-color: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+            padding-left: 12px;
+        }
+        
+        .removed {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+            padding-left: 12px;
+        }
+        
+        .changed {
+            background-color: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+            padding-left: 12px;
+        }
+        
+        .empty-page {
+            color: #6c757d;
+            font-style: italic;
+            padding: 40px 20px;
+            text-align: center;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px dashed #dee2e6;
+        }
+        
+        @media (max-width: 1200px) {
+            .page-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .page-column:first-child {
+                border-right: none;
+                border-bottom: 2px solid #e9ecef;
+            }
+            
+            .analytics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+        }
+        
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .main-container {
+                box-shadow: none;
+            }
+            
+            .page-comparison {
+                page-break-inside: avoid;
+                margin-bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <h1>📊 PDF Comparison Report</h1>
+            <div class="subtitle">pdf1.pdf vs pdf1.pdf • 2025-10-14 10:25:13</div>
+        </div>
+        
+        <div class="analytics-dashboard">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #333; font-size: 1.8em;">
+                📈 Analytics Dashboard
+            </h2>
+            
+            <div class="analytics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Similarity Score</div>
+                    <div class="metric-value">100.0%</div>
+                    <div class="metric-subvalue">0.0% different</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-label">Total Pages</div>
+                    <div class="metric-value" style="color: #6c757d;">1</div>
+                    <div class="metric-subvalue">Dev: 1 | Prod: 1</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-label">Lines Added</div>
+                    <div class="metric-value" style="color: #28a745;">0</div>
+                    <div class="metric-subvalue">New content in Prod</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-label">Lines Removed</div>
+                    <div class="metric-value" style="color: #dc3545;">0</div>
+                    <div class="metric-subvalue">Removed from Dev</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-label">Lines Modified</div>
+                    <div class="metric-value" style="color: #ffc107;">0</div>
+                    <div class="metric-subvalue">Content changes</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-label">Character Count (Dev)</div>
+                    <div class="metric-value" style="color: #17a2b8;">4,596</div>
+                    <div class="metric-subvalue">507 words</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-label">Character Count (Prod)</div>
+                    <div class="metric-value" style="color: #17a2b8;">4,596</div>
+                    <div class="metric-subvalue">507 words</div>
+                </div>
+            </div>
+            
+            <div class="similarity-bar">
+                <div class="similarity-fill" style="width: 100.0%">
+                    100.0% Match
+                </div>
+            </div>
+            
+            <div class="file-info">
+                <div class="file-card">
+                    <h3>📄 Dev PDF</h3>
+                    <div class="file-detail">
+                        <span class="file-label">Filename:</span>
+                        <span class="file-value">pdf1.pdf</span>
+                    </div>
+                    <div class="file-detail">
+                        <span class="file-label">File Size:</span>
+                        <span class="file-value">129.41 KB</span>
+                    </div>
+                    <div class="file-detail">
+                        <span class="file-label">Pages:</span>
+                        <span class="file-value">1</span>
+                    </div>
+                </div>
+                
+                <div class="file-card">
+                    <h3>📄 Prod PDF</h3>
+                    <div class="file-detail">
+                        <span class="file-label">Filename:</span>
+                        <span class="file-value">pdf1.pdf</span>
+                    </div>
+                    <div class="file-detail">
+                        <span class="file-label">File Size:</span>
+                        <span class="file-value">129.41 KB</span>
+                    </div>
+                    <div class="file-detail">
+                        <span class="file-label">Pages:</span>
+                        <span class="file-value">1</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color legend-added"></div>
+                    <span><strong>Added:</strong> 0 lines</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color legend-removed"></div>
+                    <span><strong>Removed:</strong> 0 lines</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color legend-changed"></div>
+                    <span><strong>Modified:</strong> 0 lines</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="pages-container">
+            <div class="page-comparison">
+                <div class="page-header">
+                    📄 Page 1
+                </div>
+                <div class="page-content">
+                    <div class="page-column">
+                        <h3>Dev PDF</h3>
+                        <div class="content"><div class="line">| </div><div class="line">Tejas Itankar </div><div class="line">  tejasitankar94820@gmail.com | </div><div class="line">+917972142271 </div><div class="line">     github.com/tezz94820 |     linkedin.com/in/tejas-itankar-7b1a011b4 </div><div class="line">Medium Articles Author: https://medium.com/@tejasitankar94820 </div><div class="line">D.J Sanghvi College of Engineering (DJSCE)  </div><div class="line">                August 2020 – June 2024  </div><div class="line">B.Tech in Information Technology </div><div class="line">                CGPA: 8.874 </div><div class="line">Experience </div><div class="line">BNP Paribas ISPL                                                                                                                      </div><div class="line">        June 2024 </div><div class="line">Associate Software Developer                                                                                    Typescript, Java, Selenium, python             </div><div class="line">• Contributed to the Java backend of the Jgestab application, a migration project moving from a traditional Paradox </div><div class="line">system to a web-based UI for database management. Worked on the application’s rule engine, the core component </div><div class="line">for managing multiple bank database tables. </div><div class="line">• Led the automation of the Atlas 2 Portal, a core banking application managing major transactions. Migrated from </div><div class="line">UFT to Java and Selenium, eliminating licensing costs while ensuring seamless functionality and test case integrity. </div><div class="line">• Collaborated with a team to integrate Generative AI into developer and tester workflows, working on the Continue </div><div class="line">plugin in VS Code to assist developers in coding. </div><div class="line">• Contributed to a use case for converting UI user stories into structured test cases, automating them with </div><div class="line">Selenium (Java), and managing the workflow using Bitbucket and JIRA. This project is in its initiation stage, as the </div><div class="line">AI models are still in early development within the bank. </div><div class="line">Internships </div><div class="line">Highway Delite                                                                                                                                 May. 2024 – June 2024 </div><div class="line">Full Stack Developer                                                                                          Typescript, NEXTJS, NESTJS, Postgresql </div><div class="line">• Developed location-based service APIs using Google Maps APIs and PostGIS, and migrated the Agent Reporting </div><div class="line">Server from PHP to Nest.js &amp; Next.js, optimizing SQL queries. </div><div class="line">D.K Academy Pvt Lmt                                                                                                                        Oct. 2023 – Mar 2024 </div><div class="line">Mern Stack Developer                                                                                  Typescript, NextJS, Tailwind CSS, MongoDB  </div><div class="line">• Implemented OAuth2.0, 2FA (OTP-based authentication), secured AWS S3 storage, and deployed the app using </div><div class="line">AWS EC2 (backend) and Vercel (frontend) with a custom domain setup. </div><div class="line">Atmospark Technologies (Freelance)                                                                                            Nov. 2023 - Dec. 2023 </div><div class="line">Mern Stack Developer                                                                               Javascript, NextJS, Bootstrap CSS, MongoDB  </div><div class="line">• Built shopping cart, Stripe payment integration, and Figma-based UI, while integrating MQTT server on AWS with </div><div class="line">WebSockets. </div><div class="line">Astro Vistaa Pvt lmt                                                                                                                        Aug. 2022 - Dec. 2022 </div><div class="line">Node Backend Developer </div><div class="line">                                JavaScript, Nodejs, MongoDB, Git, GitHub </div><div class="line">• Developed real-time chat using WebSockets and integrated Exotel webhooks for call tracking and automated </div><div class="line">notifications. </div><div class="line">Projects </div><div class="line">Handwritten Equation Recognition System </div><div class="line">        Python, TensorFlow, Google colab , keras </div><div class="line">• The Aim was to build an Deep Learning Neural Network Model to detect and convert handwritten Maths Equation </div><div class="line">Image to latex format. Used algorithms like RNN(Recurrent Neural Networks), LSTM, Encoder + LSTM. In Encoder </div><div class="line">we Tried to Use Resnet-50, Xception, VGG-16, VGG-19 transfer learning algorithms.  </div><div class="line">• Finally, Attention based Encoder (Resnet-50) - Decoder (Transformer) Model is found to give maximum accuracy to </div><div class="line">convert equation images to latex which gave us Validation Accuracy of 74%.  </div><div class="line">Hackathon </div><div class="line">Winner of Domain (Data Analytics) in hackathon DATAHACK 1.0 </div><div class="line">               Mar. 2023  </div><div class="line">• Won Data Analytics domain in DATAHACK 1.0 by predicting used car prices with 98% accuracy using XGBoost for </div><div class="line">price prediction and VGG (Transfer Learning) for damage detection, leveraging data scraped from CarWale and </div><div class="line">Cars24. </div><div class="line">Skills </div><div class="line">Languages, Technologies &amp; Tools: </div><div class="line">• Javascipt(ES6), Typescript, Java, python, SQL, DSA, DBMS, OS, Computer Networks, System Design concepts </div><div class="line">• ReactJS, NextJS, MongoDB, ExpressJs, JWT Tokens, Docker, Linux, Tensorflow, Keras, Opencv. </div></div>
+                    </div>
+                    <div class="page-column">
+                        <h3>Prod PDF</h3>
+                        <div class="content"><div class="line">| </div><div class="line">Tejas Itankar </div><div class="line">  tejasitankar94820@gmail.com | </div><div class="line">+917972142271 </div><div class="line">     github.com/tezz94820 |     linkedin.com/in/tejas-itankar-7b1a011b4 </div><div class="line">Medium Articles Author: https://medium.com/@tejasitankar94820 </div><div class="line">D.J Sanghvi College of Engineering (DJSCE)  </div><div class="line">                August 2020 – June 2024  </div><div class="line">B.Tech in Information Technology </div><div class="line">                CGPA: 8.874 </div><div class="line">Experience </div><div class="line">BNP Paribas ISPL                                                                                                                      </div><div class="line">        June 2024 </div><div class="line">Associate Software Developer                                                                                    Typescript, Java, Selenium, python             </div><div class="line">• Contributed to the Java backend of the Jgestab application, a migration project moving from a traditional Paradox </div><div class="line">system to a web-based UI for database management. Worked on the application’s rule engine, the core component </div><div class="line">for managing multiple bank database tables. </div><div class="line">• Led the automation of the Atlas 2 Portal, a core banking application managing major transactions. Migrated from </div><div class="line">UFT to Java and Selenium, eliminating licensing costs while ensuring seamless functionality and test case integrity. </div><div class="line">• Collaborated with a team to integrate Generative AI into developer and tester workflows, working on the Continue </div><div class="line">plugin in VS Code to assist developers in coding. </div><div class="line">• Contributed to a use case for converting UI user stories into structured test cases, automating them with </div><div class="line">Selenium (Java), and managing the workflow using Bitbucket and JIRA. This project is in its initiation stage, as the </div><div class="line">AI models are still in early development within the bank. </div><div class="line">Internships </div><div class="line">Highway Delite                                                                                                                                 May. 2024 – June 2024 </div><div class="line">Full Stack Developer                                                                                          Typescript, NEXTJS, NESTJS, Postgresql </div><div class="line">• Developed location-based service APIs using Google Maps APIs and PostGIS, and migrated the Agent Reporting </div><div class="line">Server from PHP to Nest.js &amp; Next.js, optimizing SQL queries. </div><div class="line">D.K Academy Pvt Lmt                                                                                                                        Oct. 2023 – Mar 2024 </div><div class="line">Mern Stack Developer                                                                                  Typescript, NextJS, Tailwind CSS, MongoDB  </div><div class="line">• Implemented OAuth2.0, 2FA (OTP-based authentication), secured AWS S3 storage, and deployed the app using </div><div class="line">AWS EC2 (backend) and Vercel (frontend) with a custom domain setup. </div><div class="line">Atmospark Technologies (Freelance)                                                                                            Nov. 2023 - Dec. 2023 </div><div class="line">Mern Stack Developer                                                                               Javascript, NextJS, Bootstrap CSS, MongoDB  </div><div class="line">• Built shopping cart, Stripe payment integration, and Figma-based UI, while integrating MQTT server on AWS with </div><div class="line">WebSockets. </div><div class="line">Astro Vistaa Pvt lmt                                                                                                                        Aug. 2022 - Dec. 2022 </div><div class="line">Node Backend Developer </div><div class="line">                                JavaScript, Nodejs, MongoDB, Git, GitHub </div><div class="line">• Developed real-time chat using WebSockets and integrated Exotel webhooks for call tracking and automated </div><div class="line">notifications. </div><div class="line">Projects </div><div class="line">Handwritten Equation Recognition System </div><div class="line">        Python, TensorFlow, Google colab , keras </div><div class="line">• The Aim was to build an Deep Learning Neural Network Model to detect and convert handwritten Maths Equation </div><div class="line">Image to latex format. Used algorithms like RNN(Recurrent Neural Networks), LSTM, Encoder + LSTM. In Encoder </div><div class="line">we Tried to Use Resnet-50, Xception, VGG-16, VGG-19 transfer learning algorithms.  </div><div class="line">• Finally, Attention based Encoder (Resnet-50) - Decoder (Transformer) Model is found to give maximum accuracy to </div><div class="line">convert equation images to latex which gave us Validation Accuracy of 74%.  </div><div class="line">Hackathon </div><div class="line">Winner of Domain (Data Analytics) in hackathon DATAHACK 1.0 </div><div class="line">               Mar. 2023  </div><div class="line">• Won Data Analytics domain in DATAHACK 1.0 by predicting used car prices with 98% accuracy using XGBoost for </div><div class="line">price prediction and VGG (Transfer Learning) for damage detection, leveraging data scraped from CarWale and </div><div class="line">Cars24. </div><div class="line">Skills </div><div class="line">Languages, Technologies &amp; Tools: </div><div class="line">• Javascipt(ES6), Typescript, Java, python, SQL, DSA, DBMS, OS, Computer Networks, System Design concepts </div><div class="line">• ReactJS, NextJS, MongoDB, ExpressJs, JWT Tokens, Docker, Linux, Tensorflow, Keras, Opencv. </div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

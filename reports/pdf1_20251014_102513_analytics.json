@@ -1,0 +1,30 @@
+{
+  "timestamp": "2025-10-14 10:25:13",
+  "dev_file": "pdf1.pdf",
+  "prod_file": "pdf1.pdf",
+  "dev_size": 132511,
+  "prod_size": 132511,
+  "similarity_percent": 100.0,
+  "difference_percent": 0.0,
+  "total_pages": {
+    "dev": 1,
+    "prod": 1,
+    "max": 1
+  },
+  "changes": {
+    "added": 0,
+    "removed": 0,
+    "modified": 0,
+    "unchanged": 60
+  },
+  "characters": {
+    "dev": 4596,
+    "prod": 4596,
+    "diff": 0
+  },
+  "words": {
+    "dev": 507,
+    "prod": 507,
+    "diff": 0
+  }
+}
