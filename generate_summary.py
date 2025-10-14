@@ -530,7 +530,12 @@ class SummaryGenerator:
             
             html += f"""
                         <tr>
-                            <td><strong>{escape(file_data['dev_file'])}</strong></td>
+                            <td>
+                                <div style="font-size: 0.85em; line-height: 1.5;">
+                                    <div><strong>Dev:</strong> {escape(file_data['dev_file'])}</div>
+                                    <div><strong>Prod:</strong> {escape(file_data['prod_file'])}</div>
+                                </div>
+                            </td>
                             <td><span class="badge {similarity_badge}">{file_data['similarity_percent']}%</span></td>
                             <td><span class="change-indicator change-added">+{file_data['changes']['added']}</span></td>
                             <td><span class="change-indicator change-removed">-{file_data['changes']['removed']}</span></td>
@@ -569,7 +574,12 @@ class SummaryGenerator:
             
             html += f"""
                         <tr>
-                            <td><strong>{escape(file_data['dev_file'])}</strong></td>
+                            <td>
+                                <div style="font-size: 0.85em; line-height: 1.5;">
+                                    <div><strong>Dev:</strong> {escape(file_data['dev_file'])}</div>
+                                    <div><strong>Prod:</strong> {escape(file_data['prod_file'])}</div>
+                                </div>
+                            </td>
                             <td><span class="badge {similarity_badge}">{file_data['similarity_percent']}%</span></td>
                             <td>{file_data['total_pages']['dev']} / {file_data['total_pages']['prod']}</td>
                             <td><span class="change-indicator change-added">+{file_data['changes']['added']}</span></td>
@@ -613,7 +623,12 @@ class SummaryGenerator:
             
             html += f"""
                         <tr>
-                            <td><strong>{escape(file_data['dev_file'])}</strong></td>
+                            <td>
+                                <div style="font-size: 0.85em; line-height: 1.5;">
+                                    <div><strong>Dev:</strong> {escape(file_data['dev_file'])}</div>
+                                    <div><strong>Prod:</strong> {escape(file_data['prod_file'])}</div>
+                                </div>
+                            </td>
                             <td><span class="badge {similarity_badge}">{file_data['similarity_percent']}%</span></td>
                             <td>{file_data['total_pages']['dev']} / {file_data['total_pages']['prod']}</td>
                             <td>

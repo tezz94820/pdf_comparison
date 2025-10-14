@@ -1,11 +1,12 @@
 """
-Professional PDF Comparison Tool with Batch Folder Processing
-Compares all matching PDFs between dev and prod folders
+Professional PDF Comparison Tool with CSV-Based File Mapping
+Maps dev and prod files using a CSV configuration file
 """
 
 import fitz  # PyMuPDF
 import difflib
 import os
+import csv
 import json
 from html import escape
 from datetime import datetime
@@ -670,7 +671,7 @@ class PDFComparator:
         html_report = self.generate_html_report()
         
         # Save report with sanitized filename
-        safe_filename = self.dev_pdf.stem.replace(' ', '_')
+        safe_filename = f"{self.dev_pdf.stem}_vs_{self.prod_pdf.stem}".replace(' ', '_')
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = self.output_dir / f"{safe_filename}_{timestamp}.html"
         
@@ -688,78 +689,149 @@ class PDFComparator:
 
 
 class BatchPDFComparator:
-    """Batch process PDFs from dev and prod folders."""
+    """Batch process PDFs using CSV file mapping."""
     
-    def __init__(self, dev_folder: str = "dev", prod_folder: str = "prod", 
+    def __init__(self, csv_file: str = "file_mapping.csv", 
+                 dev_folder: str = "dev", 
+                 prod_folder: str = "prod", 
                  output_dir: str = "reports"):
+        self.csv_file = Path(csv_file)
         self.dev_folder = Path(dev_folder)
         self.prod_folder = Path(prod_folder)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
         
-        self.matched_pdfs = []
-        self.dev_only_pdfs = []
-        self.prod_only_pdfs = []
+        self.file_mappings = []
+        self.missing_files = []
         self.comparison_results = []
         
-    def find_matching_pdfs(self):
-        """Find PDFs with matching names in both folders."""
+    def load_csv_mappings(self) -> bool:
+        """Load file mappings from CSV file."""
         
-        if not self.dev_folder.exists():
-            print(f"❌ Dev folder not found: {self.dev_folder}")
-            return
+        if not self.csv_file.exists():
+            print(f"❌ CSV file not found: {self.csv_file}")
+            print(f"   Please create a CSV file with columns: Sr.No, Dev Filename, Prod Filename")
+            return False
         
-        if not self.prod_folder.exists():
-            print(f"❌ Prod folder not found: {self.prod_folder}")
-            return
+        print(f"📋 Reading CSV file: {self.csv_file}")
         
-        # Get all PDF files
-        dev_pdfs = {f.name: f for f in self.dev_folder.glob("*.pdf")}
-        prod_pdfs = {f.name: f for f in self.prod_folder.glob("*.pdf")}
+        try:
+            with open(self.csv_file, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                
+                # Check if required columns exist
+                if reader.fieldnames is None:
+                    print("❌ CSV file is empty")
+                    return False
+                
+                # Normalize column names (strip whitespace, case-insensitive)
+                fieldnames = [col.strip().lower() for col in reader.fieldnames]
+                
+                dev_col = None
+                prod_col = None
+                
+                # Find dev and prod columns
+                for col in fieldnames:
+                    if 'dev' in col and 'filename' in col:
+                        dev_col = reader.fieldnames[fieldnames.index(col)]
+                    elif 'prod' in col and 'filename' in col:
+                        prod_col = reader.fieldnames[fieldnames.index(col)]
+                
+                if not dev_col or not prod_col:
+                    print("❌ CSV must have 'Dev Filename' and 'Prod Filename' columns")
+                    print(f"   Found columns: {', '.join(reader.fieldnames)}")
+                    return False
+                
+                # Read all rows
+                row_count = 0
+                for row in reader:
+                    dev_filename = row[dev_col].strip()
+                    prod_filename = row[prod_col].strip()
+                    
+                    if dev_filename and prod_filename:
+                        self.file_mappings.append({
+                            'dev': dev_filename,
+                            'prod': prod_filename
+                        })
+                        row_count += 1
+                
+                print(f"   ✅ Loaded {row_count} file mappings")
+                return True
+                
+        except Exception as e:
+            print(f"❌ Error reading CSV file: {e}")
+            return False
+    
+    def validate_files(self):
+        """Validate that all files in CSV exist in their respective folders."""
         
-        # Find matches
-        dev_names = set(dev_pdfs.keys())
-        prod_names = set(prod_pdfs.keys())
+        print(f"\n🔍 Validating file existence...")
         
-        matched_names = dev_names & prod_names
-        self.dev_only_pdfs = sorted(dev_names - prod_names)
-        self.prod_only_pdfs = sorted(prod_names - dev_names)
+        valid_mappings = []
         
-        self.matched_pdfs = [(dev_pdfs[name], prod_pdfs[name]) 
-                            for name in sorted(matched_names)]
+        for mapping in self.file_mappings:
+            dev_path = self.dev_folder / mapping['dev']
+            prod_path = self.prod_folder / mapping['prod']
+            
+            dev_exists = dev_path.exists()
+            prod_exists = prod_path.exists()
+            
+            if dev_exists and prod_exists:
+                valid_mappings.append({
+                    'dev': mapping['dev'],
+                    'prod': mapping['prod'],
+                    'dev_path': dev_path,
+                    'prod_path': prod_path
+                })
+            else:
+                error_msg = []
+                if not dev_exists:
+                    error_msg.append(f"Dev file missing: {mapping['dev']}")
+                if not prod_exists:
+                    error_msg.append(f"Prod file missing: {mapping['prod']}")
+                
+                self.missing_files.append({
+                    'dev': mapping['dev'],
+                    'prod': mapping['prod'],
+                    'error': ' | '.join(error_msg)
+                })
         
-        print(f"\n📊 PDF Inventory:")
-        print(f"   ✅ Matched PDFs: {len(self.matched_pdfs)}")
-        print(f"   📁 Dev only: {len(self.dev_only_pdfs)}")
-        print(f"   📁 Prod only: {len(self.prod_only_pdfs)}")
+        self.file_mappings = valid_mappings
         
-        if self.dev_only_pdfs:
-            print(f"\n   📋 Files only in Dev folder:")
-            for name in self.dev_only_pdfs:
-                print(f"      • {name}")
-        
-        if self.prod_only_pdfs:
-            print(f"\n   📋 Files only in Prod folder:")
-            for name in self.prod_only_pdfs:
-                print(f"      • {name}")
+        print(f"   ✅ Valid file pairs: {len(valid_mappings)}")
+        if self.missing_files:
+            print(f"   ⚠️  Missing/Invalid: {len(self.missing_files)}")
+            for missing in self.missing_files:
+                print(f"      ❌ {missing['error']}")
     
     def compare_all(self):
-        """Compare all matched PDFs."""
+        """Compare all PDF pairs from CSV mapping."""
         
-        self.find_matching_pdfs()
-        
-        if not self.matched_pdfs:
-            print("\n❌ No matching PDFs found to compare!")
+        # Load CSV
+        if not self.load_csv_mappings():
             return
         
-        print(f"\n🔄 Starting batch comparison of {len(self.matched_pdfs)} PDF pairs...\n")
+        if not self.file_mappings:
+            print("\n❌ No file mappings found in CSV!")
+            return
         
-        for idx, (dev_pdf, prod_pdf) in enumerate(self.matched_pdfs, 1):
-            print(f"[{idx}/{len(self.matched_pdfs)}] Comparing: {dev_pdf.name}")
+        # Validate files exist
+        self.validate_files()
+        
+        if not self.file_mappings:
+            print("\n❌ No valid file pairs to compare!")
+            return
+        
+        print(f"\n🔄 Starting batch comparison of {len(self.file_mappings)} PDF pairs...\n")
+        
+        for idx, mapping in enumerate(self.file_mappings, 1):
+            print(f"[{idx}/{len(self.file_mappings)}] Comparing:")
+            print(f"   Dev:  {mapping['dev']}")
+            print(f"   Prod: {mapping['prod']}")
             
             comparator = PDFComparator(
-                str(dev_pdf), 
-                str(prod_pdf), 
+                str(mapping['dev_path']), 
+                str(mapping['prod_path']), 
                 str(self.output_dir)
             )
             
@@ -767,7 +839,8 @@ class BatchPDFComparator:
             
             if report_path:
                 self.comparison_results.append({
-                    'filename': dev_pdf.name,
+                    'dev_filename': mapping['dev'],
+                    'prod_filename': mapping['prod'],
                     'report_path': report_path,
                     'analytics': analytics
                 })
@@ -778,16 +851,19 @@ class BatchPDFComparator:
         print("=" * 80)
         print("📊 BATCH COMPARISON SUMMARY")
         print("=" * 80)
-        print(f"\n✅ Successfully compared: {len(self.comparison_results)} PDFs")
+        print(f"\n✅ Successfully compared: {len(self.comparison_results)} PDF pairs")
         print(f"📁 Reports saved to: {self.output_dir.absolute()}\n")
         
         for result in self.comparison_results:
             a = result['analytics']
-            print(f"📄 {result['filename']}")
+            print(f"📄 {result['dev_filename']} ↔ {result['prod_filename']}")
             print(f"   Similarity: {a['similarity_percent']}% | "
                   f"Added: {a['changes']['added']} | "
                   f"Removed: {a['changes']['removed']} | "
                   f"Modified: {a['changes']['modified']}")
+        
+        if self.missing_files:
+            print(f"\n⚠️  Skipped {len(self.missing_files)} pairs due to missing files")
         
         print(f"\n🌐 Now generating master summary report...")
         
@@ -804,11 +880,12 @@ def main():
     """Main entry point for batch comparison."""
     
     print("="*80)
-    print("🚀 PDF BATCH COMPARISON TOOL")
+    print("🚀 PDF BATCH COMPARISON TOOL (CSV-Based)")
     print("="*80)
     
-    # Initialize batch comparator
+    # Initialize batch comparator with CSV mapping
     batch = BatchPDFComparator(
+        csv_file="file_mapping.csv",
         dev_folder="dev",
         prod_folder="prod",
         output_dir="reports"
