@@ -111,8 +111,8 @@ class PDFComparator:
             'dev_size': self.dev_pdf.stat().st_size if self.dev_pdf.exists() else 0,
             'prod_size': self.prod_pdf.stat().st_size if self.prod_pdf.exists() else 0,
             'similarity_ratio': similarity_ratio,
-            'similarity_percent': round(similarity, 2),
-            'difference_percent': round(100 - similarity, 2),
+            'similarity_percent': int(similarity),
+            'difference_percent': int(100 - similarity),
             'total_pages': {
                 'dev': len(self.dev_pages),
                 'prod': len(self.prod_pages),

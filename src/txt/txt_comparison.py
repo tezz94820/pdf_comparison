@@ -68,8 +68,8 @@ class TXTComparator:
             'dev_size': self.dev_txt.stat().st_size if self.dev_txt.exists() else 0,
             'prod_size': self.prod_txt.stat().st_size if self.prod_txt.exists() else 0,
             'similarity_ratio': similarity_ratio,
-            'similarity_percent': round(similarity, 2),
-            'difference_percent': round(100 - similarity, 2),
+            'similarity_percent': int(similarity),
+            'difference_percent': int(100 - similarity),
             'total_lines': {
                 'dev': len(self.dev_lines),
                 'prod': len(self.prod_lines),

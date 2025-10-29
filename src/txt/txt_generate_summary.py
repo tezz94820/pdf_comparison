@@ -91,7 +91,7 @@ class SummaryGenerator:
                 'total': total_added + total_removed + total_modified
             },
             'similarity': {
-                'average': round(avg_similarity, 2),
+                'average': int(avg_similarity),
                 'identical': identical,
                 'high': high_similarity,
                 'medium': medium_similarity,
