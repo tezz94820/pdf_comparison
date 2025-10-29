@@ -96,7 +96,8 @@ class PDFComparator:
         prod_text = "\n".join(self.prod_pages)
         
         matcher = difflib.SequenceMatcher(None, dev_text, prod_text)
-        similarity = matcher.ratio() * 100
+        similarity_ratio = matcher.ratio()  # Raw ratio (0.0 to 1.0)
+        similarity = similarity_ratio * 100
         
         dev_chars = len(dev_text)
         prod_chars = len(prod_text)
@@ -109,6 +110,7 @@ class PDFComparator:
             'prod_file': self.prod_pdf.name,
             'dev_size': self.dev_pdf.stat().st_size if self.dev_pdf.exists() else 0,
             'prod_size': self.prod_pdf.stat().st_size if self.prod_pdf.exists() else 0,
+            'similarity_ratio': similarity_ratio,
             'similarity_percent': round(similarity, 2),
             'difference_percent': round(100 - similarity, 2),
             'total_pages': {

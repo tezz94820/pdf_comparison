@@ -133,7 +133,8 @@ class ExcelComparator:
         prod_text = "\n".join(["\n".join(data) for data in self.prod_sheets.values()])
         
         matcher = difflib.SequenceMatcher(None, dev_text, prod_text)
-        similarity = matcher.ratio() * 100 if dev_text or prod_text else 100.0
+        similarity_ratio = matcher.ratio() if dev_text or prod_text else 1.0  # Raw ratio
+        similarity = similarity_ratio * 100
         
         # Count cells (approximate by counting tabs + 1 per row)
         dev_cells = sum(row.count('\t') + 1 for sheet in self.dev_sheets.values() for row in sheet)
@@ -145,6 +146,7 @@ class ExcelComparator:
             'prod_file': self.prod_excel.name,
             'dev_size': self.dev_excel.stat().st_size if self.dev_excel.exists() else 0,
             'prod_size': self.prod_excel.stat().st_size if self.prod_excel.exists() else 0,
+            'similarity_ratio': similarity_ratio,
             'similarity_percent': round(similarity, 2),
             'difference_percent': round(100 - similarity, 2),
             'total_sheets': {

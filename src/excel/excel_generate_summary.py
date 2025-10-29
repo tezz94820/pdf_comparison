@@ -60,7 +60,8 @@ class ExcelSummaryGenerator:
         total_modified = sum(a['changes']['modified'] for a in self.analytics_data)
         total_unchanged = sum(a['changes']['unchanged'] for a in self.analytics_data)
         
-        avg_similarity = sum(a['similarity_percent'] for a in self.analytics_data) / total_files
+        avg_similarity_ratio = sum(a.get('similarity_ratio', a['similarity_percent'] / 100) for a in self.analytics_data) / total_files
+        avg_similarity = avg_similarity_ratio * 100
         
         # Count files by similarity ranges
         identical = sum(1 for a in self.analytics_data if a['similarity_percent'] == 100)

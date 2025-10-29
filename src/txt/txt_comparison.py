@@ -53,7 +53,8 @@ class TXTComparator:
         prod_text = "".join(self.prod_lines)
         
         matcher = difflib.SequenceMatcher(None, dev_text, prod_text)
-        similarity = matcher.ratio() * 100
+        similarity_ratio = matcher.ratio()  # Raw ratio (0.0 to 1.0)
+        similarity = similarity_ratio * 100
         
         dev_chars = len(dev_text)
         prod_chars = len(prod_text)
@@ -66,6 +67,7 @@ class TXTComparator:
             'prod_file': self.prod_txt.name,
             'dev_size': self.dev_txt.stat().st_size if self.dev_txt.exists() else 0,
             'prod_size': self.prod_txt.stat().st_size if self.prod_txt.exists() else 0,
+            'similarity_ratio': similarity_ratio,
             'similarity_percent': round(similarity, 2),
             'difference_percent': round(100 - similarity, 2),
             'total_lines': {
