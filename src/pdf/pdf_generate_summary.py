@@ -1,7 +1,7 @@
 """
-Optimized Master Summary Report Generator
+Master Summary Report Generator
 Combines all individual PDF comparison reports into a single summary
-Uses efficient aggregation and batch HTML building
+Can be run independently or called from main comparison script
 """
 
 import json
@@ -12,7 +12,7 @@ from html import escape
 
 
 class SummaryGenerator:
-    """Generate master summary from all comparison reports with optimized aggregation."""
+    """Generate master summary from all comparison reports."""
     
     def __init__(self, reports_dir: str = "reports"):
         self.reports_dir = Path(reports_dir)
@@ -37,6 +37,7 @@ class SummaryGenerator:
             try:
                 with open(json_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
+                    # Add the report filename
                     html_file = json_file.stem.replace('_analytics', '') + '.html'
                     data['report_file'] = html_file
                     self.analytics_data.append(data)
@@ -47,115 +48,75 @@ class SummaryGenerator:
         return self.analytics_data
     
     def calculate_aggregate_stats(self) -> Dict:
-        """Calculate aggregate statistics across all comparisons with optimized aggregation."""
+        """Calculate aggregate statistics across all comparisons."""
         
         total_files = len(self.analytics_data)
         
         if total_files == 0:
             return {}
         
-        # Single pass aggregation - O(n) instead of multiple passes
-        aggregate_stats = {
-            'total_added': 0,
-            'total_removed': 0,
-            'total_modified': 0,
-            'total_unchanged': 0,
-            'total_similarity_sum': 0,
-            'total_pages_dev': 0,
-            'total_pages_prod': 0,
-            'total_chars_dev': 0,
-            'total_chars_prod': 0,
-            'similarity_percentiles': [],
-            'identical': 0,
-            'high': 0,
-            'medium': 0,
-            'low': 0,
-        }
+        total_added = sum(a['changes']['added'] for a in self.analytics_data)
+        total_removed = sum(a['changes']['removed'] for a in self.analytics_data)
+        total_modified = sum(a['changes']['modified'] for a in self.analytics_data)
+        total_unchanged = sum(a['changes']['unchanged'] for a in self.analytics_data)
         
-        most_changed_files = []
-        least_similar_files = []
+        avg_similarity_ratio = sum(a.get('similarity_ratio', a['similarity_percent'] / 100) for a in self.analytics_data) / total_files
+        avg_similarity = avg_similarity_ratio * 100
         
-        # Single pass through all data
-        for file_data in self.analytics_data:
-            # Aggregate changes
-            aggregate_stats['total_added'] += file_data['changes']['added']
-            aggregate_stats['total_removed'] += file_data['changes']['removed']
-            aggregate_stats['total_modified'] += file_data['changes']['modified']
-            aggregate_stats['total_unchanged'] += file_data['changes']['unchanged']
-            
-            # Aggregate similarity
-            similarity = file_data['similarity_percent']
-            aggregate_stats['total_similarity_sum'] += similarity
-            aggregate_stats['similarity_percentiles'].append(similarity)
-            
-            # Count by ranges
-            if similarity == 100:
-                aggregate_stats['identical'] += 1
-            elif similarity >= 90:
-                aggregate_stats['high'] += 1
-            elif similarity >= 70:
-                aggregate_stats['medium'] += 1
-            else:
-                aggregate_stats['low'] += 1
-            
-            # Aggregate page counts
-            aggregate_stats['total_pages_dev'] += file_data['total_pages']['dev']
-            aggregate_stats['total_pages_prod'] += file_data['total_pages']['prod']
-            
-            # Aggregate character counts
-            aggregate_stats['total_chars_dev'] += file_data['characters']['dev']
-            aggregate_stats['total_chars_prod'] += file_data['characters']['prod']
-            
-            # Track for top changed files
-            total_changes = (file_data['changes']['added'] + 
-                           file_data['changes']['removed'] + 
-                           file_data['changes']['modified'])
-            most_changed_files.append((total_changes, file_data))
-            least_similar_files.append((similarity, file_data))
+        # Count files by similarity ranges
+        identical = sum(1 for a in self.analytics_data if a['similarity_percent'] == 100)
+        high_similarity = sum(1 for a in self.analytics_data if 90 <= a['similarity_percent'] < 100)
+        medium_similarity = sum(1 for a in self.analytics_data if 70 <= a['similarity_percent'] < 90)
+        low_similarity = sum(1 for a in self.analytics_data if a['similarity_percent'] < 70)
         
-        # Calculate average
-        avg_similarity = aggregate_stats['total_similarity_sum'] / total_files if total_files > 0 else 0
+        total_pages_dev = sum(a['total_pages']['dev'] for a in self.analytics_data)
+        total_pages_prod = sum(a['total_pages']['prod'] for a in self.analytics_data)
         
-        # Get top 5 by changes and least similar
-        most_changed_files.sort(reverse=True)
-        least_similar_files.sort()
+        total_chars_dev = sum(a['characters']['dev'] for a in self.analytics_data)
+        total_chars_prod = sum(a['characters']['prod'] for a in self.analytics_data)
+        
+        # Find files with most changes
+        most_changes = sorted(self.analytics_data, 
+                            key=lambda x: x['changes']['added'] + x['changes']['removed'] + x['changes']['modified'],
+                            reverse=True)[:5]
+        
+        # Find files with least similarity
+        least_similar = sorted(self.analytics_data, 
+                              key=lambda x: x['similarity_percent'])[:5]
         
         return {
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'total_files': total_files,
             'aggregate_changes': {
-                'added': aggregate_stats['total_added'],
-                'removed': aggregate_stats['total_removed'],
-                'modified': aggregate_stats['total_modified'],
-                'unchanged': aggregate_stats['total_unchanged'],
-                'total': aggregate_stats['total_added'] + aggregate_stats['total_removed'] + aggregate_stats['total_modified']
+                'added': total_added,
+                'removed': total_removed,
+                'modified': total_modified,
+                'unchanged': total_unchanged,
+                'total': total_added + total_removed + total_modified
             },
             'similarity': {
                 'average': int(avg_similarity),
-                'identical': aggregate_stats['identical'],
-                'high': aggregate_stats['high'],
-                'medium': aggregate_stats['medium'],
-                'low': aggregate_stats['low']
+                'identical': identical,
+                'high': high_similarity,
+                'medium': medium_similarity,
+                'low': low_similarity
             },
             'pages': {
-                'dev': aggregate_stats['total_pages_dev'],
-                'prod': aggregate_stats['total_pages_prod']
+                'dev': total_pages_dev,
+                'prod': total_pages_prod
             },
             'characters': {
-                'dev': aggregate_stats['total_chars_dev'],
-                'prod': aggregate_stats['total_chars_prod']
+                'dev': total_chars_dev,
+                'prod': total_chars_prod
             },
-            'top_changed_files': [item[1] for item in most_changed_files[:5]],
-            'least_similar_files': [item[1] for item in least_similar_files[:5]]
+            'top_changed_files': most_changes,
+            'least_similar_files': least_similar
         }
     
     def generate_summary_html(self, stats: Dict) -> str:
-        """Generate beautiful HTML summary report using efficient string building."""
+        """Generate beautiful HTML summary report."""
         
-        # Use list and join for efficient string building
-        html_parts = []
-        
-        html_parts.append(f"""<!DOCTYPE html>
+        html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -230,12 +191,19 @@ class SummaryGenerator:
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             border-left: 4px solid #667eea;
+            transition: transform 0.2s;
+        }}
+        
+        .stat-card:hover {{
+            transform: translateY(-4px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.15);
         }}
         
         .stat-label {{
             font-size: 0.9em;
             color: #6c757d;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
             margin-bottom: 10px;
         }}
         
@@ -245,101 +213,132 @@ class SummaryGenerator:
             color: #667eea;
         }}
         
-        .stat-subtext {{
-            font-size: 0.9em;
+        .stat-subvalue {{
+            font-size: 0.95em;
             color: #6c757d;
-            margin-top: 10px;
+            margin-top: 8px;
         }}
         
-        .similarity-distribution {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }}
-        
-        .similarity-box {{
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-        }}
-        
-        .similarity-box.identical {{
-            background: #d4edda;
-            color: #155724;
-        }}
-        
-        .similarity-box.high {{
-            background: #cfe2ff;
-            color: #084298;
-        }}
-        
-        .similarity-box.medium {{
-            background: #fff3cd;
-            color: #856404;
-        }}
-        
-        .similarity-box.low {{
-            background: #f8d7da;
-            color: #721c24;
-        }}
-        
-        .similarity-box-value {{
-            font-size: 2em;
-            font-weight: 700;
-        }}
-        
-        .similarity-box-label {{
-            font-size: 0.9em;
-            text-transform: uppercase;
-            margin-top: 5px;
-        }}
-        
-        .section {{
-            padding: 40px;
+        .similarity-breakdown {{
             background: white;
-            margin-top: 20px;
-            border-top: 1px solid #e9ecef;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 40px;
         }}
         
-        .section-heading {{
-            font-size: 1.5em;
-            font-weight: 700;
+        .similarity-breakdown h3 {{
+            color: #667eea;
             margin-bottom: 20px;
+            font-size: 1.5em;
+        }}
+        
+        .similarity-bars {{
+            display: grid;
+            gap: 15px;
+        }}
+        
+        .similarity-bar-item {{
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }}
+        
+        .bar-label {{
+            min-width: 150px;
+            font-weight: 600;
             color: #333;
+        }}
+        
+        .bar-container {{
+            flex: 1;
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }}
+        
+        .bar-fill {{
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.9em;
+            transition: width 0.5s ease;
+        }}
+        
+        .bar-count {{
+            min-width: 50px;
+            text-align: right;
+            font-weight: 600;
+            color: #667eea;
         }}
         
         .files-table {{
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 40px;
+            overflow-x: auto;
+        }}
+        
+        .files-table h3 {{
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }}
+        
+        table {{
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
         }}
         
-        .files-table thead {{
-            background: #f8f9fa;
+        thead {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
         }}
         
-        .files-table th {{
+        th {{
             padding: 15px;
             text-align: left;
             font-weight: 600;
-            color: #333;
-            border-bottom: 2px solid #e9ecef;
+            font-size: 0.95em;
         }}
         
-        .files-table td {{
-            padding: 15px;
+        tbody tr {{
             border-bottom: 1px solid #e9ecef;
+            transition: background 0.2s;
         }}
         
-        .files-table tbody tr:hover {{
+        tbody tr:hover {{
             background: #f8f9fa;
+        }}
+        
+        td {{
+            padding: 15px;
+        }}
+        
+        .file-link {{
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        
+        .file-link:hover {{
+            text-decoration: underline;
         }}
         
         .badge {{
             display: inline-block;
-            padding: 8px 12px;
-            border-radius: 20px;
+            padding: 4px 12px;
+            border-radius: 12px;
             font-size: 0.85em;
             font-weight: 600;
         }}
@@ -359,139 +358,165 @@ class SummaryGenerator:
             color: #721c24;
         }}
         
-        .file-link {{
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 600;
-        }}
-        
-        .file-link:hover {{
-            text-decoration: underline;
+        .badge-info {{
+            background: #d1ecf1;
+            color: #0c5460;
         }}
         
         .change-indicator {{
-            display: inline-block;
-            margin-right: 10px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.85em;
-            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9em;
         }}
         
         .change-added {{
-            background: #d4edda;
-            color: #155724;
+            color: #28a745;
         }}
         
         .change-removed {{
-            background: #f8d7da;
-            color: #721c24;
+            color: #dc3545;
         }}
         
         .change-modified {{
-            background: #fff3cd;
-            color: #856404;
+            color: #ffc107;
         }}
         
-        .footer {{
-            padding: 20px;
-            background: #f8f9fa;
-            text-align: center;
-            font-size: 0.9em;
-            color: #6c757d;
-            border-top: 1px solid #e9ecef;
+        @media (max-width: 768px) {{
+            .stats-grid {{
+                grid-template-columns: 1fr;
+            }}
+            
+            .header h1 {{
+                font-size: 2em;
+            }}
+            
+            .stat-value {{
+                font-size: 2em;
+            }}
         }}
     </style>
 </head>
 <body>
     <div class="main-container">
         <div class="header">
-            <h1>📊 PDF Comparison Master Summary</h1>
-            <div class="subtitle">Aggregated Analysis of {stats['total_files']} PDF Comparisons</div>
+            <h1>📊 Master Summary Report</h1>
+            <div class="subtitle">Batch PDF Comparison Analysis • {stats['timestamp']}</div>
         </div>
         
         <div class="summary-dashboard">
-            <h2 class="section-title">📈 Overall Statistics</h2>
+            <h2 class="section-title">📈 Aggregate Statistics</h2>
             
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-label">Total Files Compared</div>
                     <div class="stat-value">{stats['total_files']}</div>
+                    <div class="stat-subvalue">PDF pairs analyzed</div>
                 </div>
                 
                 <div class="stat-card">
                     <div class="stat-label">Average Similarity</div>
                     <div class="stat-value">{stats['similarity']['average']}%</div>
+                    <div class="stat-subvalue">Across all files</div>
                 </div>
                 
                 <div class="stat-card">
                     <div class="stat-label">Total Changes</div>
-                    <div class="stat-value">{stats['aggregate_changes']['total']:,}</div>
+                    <div class="stat-value" style="color: #ffc107;">{stats['aggregate_changes']['total']:,}</div>
+                    <div class="stat-subvalue">Lines modified in total</div>
                 </div>
                 
                 <div class="stat-card">
-                    <div class="stat-label">Total Pages</div>
-                    <div class="stat-value">{stats['pages']['dev'] + stats['pages']['prod']:,}</div>
+                    <div class="stat-label">Lines Added</div>
+                    <div class="stat-value" style="color: #28a745;">{stats['aggregate_changes']['added']:,}</div>
+                    <div class="stat-subvalue">New content</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-label">Lines Removed</div>
+                    <div class="stat-value" style="color: #dc3545;">{stats['aggregate_changes']['removed']:,}</div>
+                    <div class="stat-subvalue">Deleted content</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-label">Lines Modified</div>
+                    <div class="stat-value" style="color: #17a2b8;">{stats['aggregate_changes']['modified']:,}</div>
+                    <div class="stat-subvalue">Changed content</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-label">Total Pages (Dev)</div>
+                    <div class="stat-value" style="color: #6c757d;">{stats['pages']['dev']:,}</div>
+                    <div class="stat-subvalue">All dev PDFs combined</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-label">Total Pages (Prod)</div>
+                    <div class="stat-value" style="color: #6c757d;">{stats['pages']['prod']:,}</div>
+                    <div class="stat-subvalue">All prod PDFs combined</div>
                 </div>
             </div>
             
-            <h2 class="section-title" style="margin-top: 30px;">🎯 Similarity Distribution</h2>
-            
-            <div class="similarity-distribution">
-                <div class="similarity-box identical">
-                    <div class="similarity-box-value">{stats['similarity']['identical']}</div>
-                    <div class="similarity-box-label">Identical (100%)</div>
-                </div>
-                <div class="similarity-box high">
-                    <div class="similarity-box-value">{stats['similarity']['high']}</div>
-                    <div class="similarity-box-label">High (90-99%)</div>
-                </div>
-                <div class="similarity-box medium">
-                    <div class="similarity-box-value">{stats['similarity']['medium']}</div>
-                    <div class="similarity-box-label">Medium (70-89%)</div>
-                </div>
-                <div class="similarity-box low">
-                    <div class="similarity-box-value">{stats['similarity']['low']}</div>
-                    <div class="similarity-box-label">Low (&lt;70%)</div>
+            <div class="similarity-breakdown">
+                <h3>🎯 Similarity Distribution</h3>
+                <div class="similarity-bars">
+                    <div class="similarity-bar-item">
+                        <div class="bar-label">Identical (100%)</div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: {(stats['similarity']['identical'] / stats['total_files'] * 100) if stats['total_files'] > 0 else 0}%; background: linear-gradient(90deg, #28a745, #20c997);">
+                                {stats['similarity']['identical']} files
+                            </div>
+                        </div>
+                        <div class="bar-count">{stats['similarity']['identical']}</div>
+                    </div>
+                    
+                    <div class="similarity-bar-item">
+                        <div class="bar-label">High (90-99%)</div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: {(stats['similarity']['high'] / stats['total_files'] * 100) if stats['total_files'] > 0 else 0}%; background: linear-gradient(90deg, #20c997, #17a2b8);">
+                                {stats['similarity']['high']} files
+                            </div>
+                        </div>
+                        <div class="bar-count">{stats['similarity']['high']}</div>
+                    </div>
+                    
+                    <div class="similarity-bar-item">
+                        <div class="bar-label">Medium (70-89%)</div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: {(stats['similarity']['medium'] / stats['total_files'] * 100) if stats['total_files'] > 0 else 0}%; background: linear-gradient(90deg, #ffc107, #fd7e14);">
+                                {stats['similarity']['medium']} files
+                            </div>
+                        </div>
+                        <div class="bar-count">{stats['similarity']['medium']}</div>
+                    </div>
+                    
+                    <div class="similarity-bar-item">
+                        <div class="bar-label">Low (&lt;70%)</div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: {(stats['similarity']['low'] / stats['total_files'] * 100) if stats['total_files'] > 0 else 0}%; background: linear-gradient(90deg, #dc3545, #c82333);">
+                                {stats['similarity']['low']} files
+                            </div>
+                        </div>
+                        <div class="bar-count">{stats['similarity']['low']}</div>
+                    </div>
                 </div>
             </div>
-        </div>
-        
-        <div class="section">
-            <h2 class="section-heading">📊 Change Summary</h2>
             
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                <div style="padding: 20px; background: #d4edda; border-radius: 8px; text-align: center; color: #155724;">
-                    <div style="font-size: 2em; font-weight: 700;">➕ {stats['aggregate_changes']['added']:,}</div>
-                    <div style="margin-top: 5px;">Lines Added</div>
-                </div>
-                <div style="padding: 20px; background: #f8d7da; border-radius: 8px; text-align: center; color: #721c24;">
-                    <div style="font-size: 2em; font-weight: 700;">➖ {stats['aggregate_changes']['removed']:,}</div>
-                    <div style="margin-top: 5px;">Lines Removed</div>
-                </div>
-                <div style="padding: 20px; background: #fff3cd; border-radius: 8px; text-align: center; color: #856404;">
-                    <div style="font-size: 2em; font-weight: 700;">✏️ {stats['aggregate_changes']['modified']:,}</div>
-                    <div style="margin-top: 5px;">Lines Modified</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="section">
-            <h2 class="section-heading">🚀 Top 5 Files with Most Changes</h2>
-            
-            <table class="files-table">
-                <thead>
-                    <tr>
-                        <th>Filename</th>
-                        <th>Similarity</th>
-                        <th>Added</th>
-                        <th>Removed</th>
-                        <th>Modified</th>
-                        <th>Total</th>
-                        <th>Report</th>
-                    </tr>
-                </thead>
-                <tbody>""")
+            <div class="files-table">
+                <h3>🔥 Top 5 Files with Most Changes</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Similarity</th>
+                            <th>Added</th>
+                            <th>Removed</th>
+                            <th>Modified</th>
+                            <th>Total Changes</th>
+                            <th>Report</th>
+                        </tr>
+                    </thead>
+                    <tbody>"""
         
         for file_data in stats['top_changed_files']:
             total_changes = (file_data['changes']['added'] + 
@@ -504,43 +529,42 @@ class SummaryGenerator:
             elif file_data['similarity_percent'] < 90:
                 similarity_badge = 'badge-warning'
             
-            html_parts.append(f"""
-                    <tr>
-                        <td>
-                            <div style="font-size: 0.85em; line-height: 1.5;">
-                                <div><strong>Dev:</strong> {escape(file_data['dev_file'])}</div>
-                                <div><strong>Prod:</strong> {escape(file_data['prod_file'])}</div>
-                            </div>
-                        </td>
-                        <td><span class="badge {similarity_badge}">{file_data['similarity_percent']}%</span></td>
-                        <td><span class="change-indicator change-added">+{file_data['changes']['added']}</span></td>
-                        <td><span class="change-indicator change-removed">-{file_data['changes']['removed']}</span></td>
-                        <td><span class="change-indicator change-modified">~{file_data['changes']['modified']}</span></td>
-                        <td><strong>{total_changes:,}</strong></td>
-                        <td><a href="{file_data['report_file']}" class="file-link">📄 View Report</a></td>
-                    </tr>""")
+            html += f"""
+                        <tr>
+                            <td>
+                                <div style="font-size: 0.85em; line-height: 1.5;">
+                                    <div><strong>Dev:</strong> {escape(file_data['dev_file'])}</div>
+                                    <div><strong>Prod:</strong> {escape(file_data['prod_file'])}</div>
+                                </div>
+                            </td>
+                            <td><span class="badge {similarity_badge}">{file_data['similarity_percent']}%</span></td>
+                            <td><span class="change-indicator change-added">+{file_data['changes']['added']}</span></td>
+                            <td><span class="change-indicator change-removed">-{file_data['changes']['removed']}</span></td>
+                            <td><span class="change-indicator change-modified">~{file_data['changes']['modified']}</span></td>
+                            <td><strong>{total_changes:,}</strong></td>
+                            <td><a href="{file_data['report_file']}" class="file-link">📄 View Report</a></td>
+                        </tr>"""
         
-        html_parts.append("""
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="section">
-            <h2 class="section-heading">⚠️ Top 5 Files with Lowest Similarity</h2>
+        html += """
+                    </tbody>
+                </table>
+            </div>
             
-            <table class="files-table">
-                <thead>
-                    <tr>
-                        <th>Filename</th>
-                        <th>Similarity</th>
-                        <th>Pages (Dev/Prod)</th>
-                        <th>Added</th>
-                        <th>Removed</th>
-                        <th>Modified</th>
-                        <th>Report</th>
-                    </tr>
-                </thead>
-                <tbody>""")
+            <div class="files-table">
+                <h3>⚠️ Top 5 Files with Lowest Similarity</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Similarity</th>
+                            <th>Pages (Dev/Prod)</th>
+                            <th>Added</th>
+                            <th>Removed</th>
+                            <th>Modified</th>
+                            <th>Report</th>
+                        </tr>
+                    </thead>
+                    <tbody>"""
         
         for file_data in stats['least_similar_files']:
             similarity_badge = 'badge-danger'
@@ -549,42 +573,89 @@ class SummaryGenerator:
             elif file_data['similarity_percent'] >= 70:
                 similarity_badge = 'badge-warning'
             
-            html_parts.append(f"""
-                    <tr>
-                        <td>
-                            <div style="font-size: 0.85em; line-height: 1.5;">
-                                <div><strong>Dev:</strong> {escape(file_data['dev_file'])}</div>
-                                <div><strong>Prod:</strong> {escape(file_data['prod_file'])}</div>
-                            </div>
-                        </td>
-                        <td><span class="badge {similarity_badge}">{file_data['similarity_percent']}%</span></td>
-                        <td>{file_data['total_pages']['dev']} / {file_data['total_pages']['prod']}</td>
-                        <td><span class="change-indicator change-added">+{file_data['changes']['added']}</span></td>
-                        <td><span class="change-indicator change-removed">-{file_data['changes']['removed']}</span></td>
-                        <td><span class="change-indicator change-modified">~{file_data['changes']['modified']}</span></td>
-                        <td><a href="{file_data['report_file']}" class="file-link">📄 View Report</a></td>
-                    </tr>""")
+            html += f"""
+                        <tr>
+                            <td>
+                                <div style="font-size: 0.85em; line-height: 1.5;">
+                                    <div><strong>Dev:</strong> {escape(file_data['dev_file'])}</div>
+                                    <div><strong>Prod:</strong> {escape(file_data['prod_file'])}</div>
+                                </div>
+                            </td>
+                            <td><span class="badge {similarity_badge}">{file_data['similarity_percent']}%</span></td>
+                            <td>{file_data['total_pages']['dev']} / {file_data['total_pages']['prod']}</td>
+                            <td><span class="change-indicator change-added">+{file_data['changes']['added']}</span></td>
+                            <td><span class="change-indicator change-removed">-{file_data['changes']['removed']}</span></td>
+                            <td><span class="change-indicator change-modified">~{file_data['changes']['modified']}</span></td>
+                            <td><a href="{file_data['report_file']}" class="file-link">📄 View Report</a></td>
+                        </tr>"""
         
-        html_parts.append(f"""
-                </tbody>
-            </table>
-        </div>
+        html += """
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="files-table">
+                <h3>📋 All Comparison Results</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Similarity</th>
+                            <th>Pages</th>
+                            <th>Changes</th>
+                            <th>Report</th>
+                        </tr>
+                    </thead>
+                    <tbody>"""
         
-        <div class="footer">
-            <p>Generated: {stats['timestamp']}</p>
-            <p>PDF Summary Generator v2.0 (Optimized)</p>
+        # Sort all files by filename
+        sorted_data = sorted(self.analytics_data, key=lambda x: x['dev_file'])
+        
+        for file_data in sorted_data:
+            total_changes = (file_data['changes']['added'] + 
+                           file_data['changes']['removed'] + 
+                           file_data['changes']['modified'])
+            
+            similarity_badge = 'badge-success'
+            if file_data['similarity_percent'] < 70:
+                similarity_badge = 'badge-danger'
+            elif file_data['similarity_percent'] < 90:
+                similarity_badge = 'badge-warning'
+            
+            html += f"""
+                        <tr>
+                            <td>
+                                <div style="font-size: 0.85em; line-height: 1.5;">
+                                    <div><strong>Dev:</strong> {escape(file_data['dev_file'])}</div>
+                                    <div><strong>Prod:</strong> {escape(file_data['prod_file'])}</div>
+                                </div>
+                            </td>
+                            <td><span class="badge {similarity_badge}">{file_data['similarity_percent']}%</span></td>
+                            <td>{file_data['total_pages']['dev']} / {file_data['total_pages']['prod']}</td>
+                            <td>
+                                <span class="change-indicator change-added">+{file_data['changes']['added']}</span>
+                                <span class="change-indicator change-removed">-{file_data['changes']['removed']}</span>
+                                <span class="change-indicator change-modified">~{file_data['changes']['modified']}</span>
+                            </td>
+                            <td><a href="{file_data['report_file']}" class="file-link">📄 View Report</a></td>
+                        </tr>"""
+        
+        html += """
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </body>
-</html>""")
+</html>"""
         
-        return "".join(html_parts)
+        return html
     
     def generate_summary(self) -> str:
         """Generate master summary report."""
         
         print("\n" + "="*80)
-        print("📊 GENERATING MASTER SUMMARY REPORT (OPTIMIZED)")
+        print("📊 GENERATING MASTER SUMMARY REPORT")
         print("="*80 + "\n")
         
         analytics = self.load_analytics()
@@ -623,7 +694,7 @@ def main():
     """Main entry point for standalone summary generation."""
     
     print("="*80)
-    print("🚀 MASTER SUMMARY REPORT GENERATOR (OPTIMIZED)")
+    print("🚀 MASTER SUMMARY REPORT GENERATOR")
     print("="*80)
     
     generator = SummaryGenerator(reports_dir="reports/pdf")
