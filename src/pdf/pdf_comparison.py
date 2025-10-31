@@ -23,7 +23,7 @@ class PDFComparator:
     """Optimized PDF comparison with efficient analytics and chunked reporting."""
     
     def __init__(self, dev_pdf: str, prod_pdf: str, output_dir: str = "reports", 
-                 chunk_size: int = 50, store_full_diffs: bool = False):
+                 chunk_size: int = 50, store_full_diffs: bool = True):
         """
         Initialize PDF comparator with optimization options.
         
@@ -617,8 +617,64 @@ class PDFComparator:
             <div class="note">
                 <strong>📌 Note:</strong> This report uses optimized analytics calculation with page-level similarity aggregation.
                 The similarity percentage is calculated as an average of page-level similarities for improved performance on large PDFs.
-                Detailed page-by-page comparison is available in the detailed report.
             </div>
+        </div>
+        
+        <div class="comparison-section">
+            <div class="section-title">📄 Page-by-Page Comparison</div>""")
+        
+        # Add page-by-page comparisons if full diffs are stored
+        if self.store_full_diffs:
+            for page_data in self.page_stats:
+                if 'diff' not in page_data:
+                    continue
+                
+                page_num = page_data['page_num']
+                diff = page_data['diff']
+                
+                html_parts.append(f"""
+            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
+                <div style="font-size: 1.2em; font-weight: 700; margin-bottom: 15px; color: #333;">
+                    📄 Page {page_num} <span style="color: #667eea;">(Similarity: {int(page_data['similarity'])}%)</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h4 style="color: #667eea; margin-bottom: 10px;">📝 Dev PDF</h4>
+                        <div style="background: white; padding: 10px; border-radius: 4px; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.9em;">""")
+                
+                for line in diff:
+                    if line.startswith('- '):
+                        html_parts.append(f'<div style="background: #f8d7da; color: #721c24; padding: 2px 5px; margin: 1px 0; border-radius: 2px;">- {escape(line[2:])}</div>')
+                    elif line.startswith('  '):
+                        content = line[2:]
+                        html_parts.append(f'<div style="padding: 2px 5px; margin: 1px 0;">{escape(content)}</div>')
+                
+                html_parts.append("""
+                        </div>
+                    </div>
+                    <div>
+                        <h4 style="color: #667eea; margin-bottom: 10px;">📝 Prod PDF</h4>
+                        <div style="background: white; padding: 10px; border-radius: 4px; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.9em;">""")
+                
+                for line in diff:
+                    if line.startswith('+ '):
+                        html_parts.append(f'<div style="background: #d4edda; color: #155724; padding: 2px 5px; margin: 1px 0; border-radius: 2px;">+ {escape(line[2:])}</div>')
+                    elif line.startswith('  '):
+                        content = line[2:]
+                        html_parts.append(f'<div style="padding: 2px 5px; margin: 1px 0;">{escape(content)}</div>')
+                
+                html_parts.append("""
+                        </div>
+                    </div>
+                </div>
+            </div>""")
+        else:
+            html_parts.append("""
+            <div style="padding: 20px; background: #e7f3ff; border-left: 4px solid #2196F3; border-radius: 4px; color: #1565c0;">
+                <strong>ℹ️ Note:</strong> Page-by-page content not available. To enable it, use: <code>PDFComparator(..., store_full_diffs=True)</code>
+            </div>""")
+        
+        html_parts.append("""
         </div>
         
         <div class="footer">
@@ -873,7 +929,7 @@ class BatchPDFComparator:
                 str(mapping['dev_path']), 
                 str(mapping['prod_path']), 
                 str(self.output_dir),
-                store_full_diffs=False  # Optimize by not storing full diffs in batch mode
+                store_full_diffs=True  # Enable to show page-by-page content in reports
             )
             
             report_path, analytics = comparator.compare()
