@@ -112,7 +112,10 @@ class SummaryGenerator:
     def generate_summary_html(self, stats: Dict) -> str:
         """Generate beautiful HTML summary report."""
         
-        html = f"""<!DOCTYPE html>
+        # Build HTML in parts for memory efficiency
+        html_parts = []
+        
+        html_parts.append(f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -570,7 +573,7 @@ class SummaryGenerator:
                     <div class="change-count">{stats['aggregate_changes']['modified']}</div>
                 </div>
                 <div class="change-card unchanged">
-                    <div class="change-icon">✓</div>
+                    <div class="change-icon">✔</div>
                     <div class="change-label">Unchanged</div>
                     <div class="change-count">{stats['aggregate_changes']['unchanged']}</div>
                 </div>
@@ -612,8 +615,7 @@ class SummaryGenerator:
                             <th>Report</th>
                         </tr>
                     </thead>
-                    <tbody>
-"""
+                    <tbody>""")
         
         for file_data in stats['top_changed_files']:
             total_changes = (file_data['changes']['added'] + 
@@ -626,7 +628,7 @@ class SummaryGenerator:
             elif file_data['similarity_percent'] < 90:
                 similarity_badge = 'badge-warning'
             
-            html += f"""
+            html_parts.append(f"""
                         <tr>
                             <td>
                                 <div style="font-size: 0.85em; line-height: 1.5;">
@@ -640,9 +642,9 @@ class SummaryGenerator:
                             <td><span class="change-indicator change-modified">~{file_data['changes']['modified']}</span></td>
                             <td><strong>{total_changes:,}</strong></td>
                             <td><a href="{file_data['report_file']}" class="file-link">📄 View Report</a></td>
-                        </tr>"""
+                        </tr>""")
         
-        html += """
+        html_parts.append("""
                     </tbody>
                 </table>
             </div>
@@ -661,7 +663,7 @@ class SummaryGenerator:
                             <th>Report</th>
                         </tr>
                     </thead>
-                    <tbody>"""
+                    <tbody>""")
         
         for file_data in stats['least_similar_files']:
             similarity_badge = 'badge-danger'
@@ -670,7 +672,7 @@ class SummaryGenerator:
             elif file_data['similarity_percent'] >= 70:
                 similarity_badge = 'badge-warning'
             
-            html += f"""
+            html_parts.append(f"""
                         <tr>
                             <td>
                                 <div style="font-size: 0.85em; line-height: 1.5;">
@@ -684,9 +686,9 @@ class SummaryGenerator:
                             <td><span class="change-indicator change-removed">-{file_data['changes']['removed']}</span></td>
                             <td><span class="change-indicator change-modified">~{file_data['changes']['modified']}</span></td>
                             <td><a href="{file_data['report_file']}" class="file-link">📄 View Report</a></td>
-                        </tr>"""
+                        </tr>""")
         
-        html += """
+        html_parts.append("""
                     </tbody>
                 </table>
             </div>
@@ -703,7 +705,7 @@ class SummaryGenerator:
                             <th>Report</th>
                         </tr>
                     </thead>
-                    <tbody>"""
+                    <tbody>""")
         
         sorted_data = sorted(self.analytics_data, key=lambda x: x['dev_file'])
         
@@ -718,7 +720,7 @@ class SummaryGenerator:
             elif file_data['similarity_percent'] < 90:
                 similarity_badge = 'badge-warning'
             
-            html += f"""
+            html_parts.append(f"""
                         <tr>
                             <td>
                                 <div style="font-size: 0.85em; line-height: 1.5;">
@@ -734,9 +736,9 @@ class SummaryGenerator:
                                 <span class="change-indicator change-modified">~{file_data['changes']['modified']}</span>
                             </td>
                             <td><a href="{file_data['report_file']}" class="file-link">📄 View Report</a></td>
-                        </tr>"""
+                        </tr>""")
         
-        html += """
+        html_parts.append("""
                     </tbody>
                 </table>
             </div>
@@ -747,9 +749,9 @@ class SummaryGenerator:
         </div>
     </div>
 </body>
-</html>"""
+</html>""")
         
-        return html
+        return ''.join(html_parts)
     
     def generate_summary(self) -> str:
         """Generate master summary report."""

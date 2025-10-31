@@ -11,6 +11,7 @@ from html import escape
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple, Set
+import gc
 
 
 class TXTComparator:
@@ -22,8 +23,8 @@ class TXTComparator:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
         
-        self.dev_lines = []
-        self.prod_lines = []
+        self.dev_line_count = 0
+        self.prod_line_count = 0
         self.diff = []
         self.analytics = {}
         
@@ -31,35 +32,85 @@ class TXTComparator:
         """Load text file and return lines."""
         try:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                return f.readlines()
+                lines = f.readlines()
+                print(f"      Loaded {len(lines)} lines")
+                return lines
         except Exception as e:
             print(f"❌ Error loading file {file_path}: {e}")
             return []
     
-    def compare_files(self):
-        """Compare TXT files line by line and store differences."""
+    def compare_files_streaming(self, dev_lines: List[str], prod_lines: List[str]):
+        """Compare TXT files line by line with streaming analytics calculation."""
+        
+        # Calculate diff
         differ = difflib.Differ()
-        self.diff = list(differ.compare(self.dev_lines, self.prod_lines))
+        self.diff = list(differ.compare(dev_lines, prod_lines))
+        
+        # Pre-calculate change metrics during diff iteration
+        self._precalc_added = len([l for l in self.diff if l.startswith('+ ')])
+        self._precalc_removed = len([l for l in self.diff if l.startswith('- ')])
+        self._precalc_changed = len([l for l in self.diff if l.startswith('? ')]) // 2
+        self._precalc_unchanged = len([l for l in self.diff if l.startswith('  ')])
+        
+        # Calculate similarity using optimized approach
+        dev_text = "".join(dev_lines)
+        prod_text = "".join(prod_lines)
+        
+        # For large files, use chunk-based similarity calculation
+        if len(dev_text) > 1000000 or len(prod_text) > 1000000:
+            print(f"      Calculating similarity for large file...")
+            # Calculate similarity on chunks and average
+            chunk_size = 100000
+            similarities = []
+            
+            dev_chunks = [dev_text[i:i+chunk_size] for i in range(0, len(dev_text), chunk_size)]
+            prod_chunks = [prod_text[i:i+chunk_size] for i in range(0, len(prod_text), chunk_size)]
+            max_chunks = max(len(dev_chunks), len(prod_chunks))
+            
+            for i in range(max_chunks):
+                dev_chunk = dev_chunks[i] if i < len(dev_chunks) else ""
+                prod_chunk = prod_chunks[i] if i < len(prod_chunks) else ""
+                
+                if dev_chunk or prod_chunk:
+                    matcher = difflib.SequenceMatcher(None, dev_chunk, prod_chunk)
+                    similarities.append(matcher.ratio())
+                    
+                if (i + 1) % 10 == 0:
+                    print(f"      Calculating similarity... {i + 1}/{max_chunks} chunks", end='\r', flush=True)
+            
+            self._precalc_similarity_ratio = sum(similarities) / len(similarities) if similarities else 1.0
+            print(f"      Calculating similarity... Done!     ")
+        else:
+            matcher = difflib.SequenceMatcher(None, dev_text, prod_text)
+            self._precalc_similarity_ratio = matcher.ratio()
+        
+        # Pre-calculate character and word counts
+        self._precalc_dev_chars = len(dev_text)
+        self._precalc_prod_chars = len(prod_text)
+        self._precalc_dev_words = len(dev_text.split())
+        self._precalc_prod_words = len(prod_text.split())
+        
+        # Clear large text variables
+        del dev_text
+        del prod_text
+        gc.collect()
     
     def calculate_analytics(self) -> Dict:
-        """Calculate comprehensive comparison analytics."""
+        """Calculate comprehensive comparison analytics using pre-calculated values."""
         
-        total_added = len([l for l in self.diff if l.startswith('+ ')])
-        total_removed = len([l for l in self.diff if l.startswith('- ')])
-        total_changed = len([l for l in self.diff if l.startswith('? ')]) // 2
-        total_unchanged = len([l for l in self.diff if l.startswith('  ')])
+        # Use pre-calculated values
+        total_added = self._precalc_added
+        total_removed = self._precalc_removed
+        total_changed = self._precalc_changed
+        total_unchanged = self._precalc_unchanged
         
-        dev_text = "".join(self.dev_lines)
-        prod_text = "".join(self.prod_lines)
-        
-        matcher = difflib.SequenceMatcher(None, dev_text, prod_text)
-        similarity_ratio = matcher.ratio()  # Raw ratio (0.0 to 1.0)
+        similarity_ratio = self._precalc_similarity_ratio
         similarity = similarity_ratio * 100
         
-        dev_chars = len(dev_text)
-        prod_chars = len(prod_text)
-        dev_words = len(dev_text.split())
-        prod_words = len(prod_text.split())
+        dev_chars = self._precalc_dev_chars
+        prod_chars = self._precalc_prod_chars
+        dev_words = self._precalc_dev_words
+        prod_words = self._precalc_prod_words
         
         analytics = {
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -71,9 +122,9 @@ class TXTComparator:
             'similarity_percent': int(similarity),
             'difference_percent': int(100 - similarity),
             'total_lines': {
-                'dev': len(self.dev_lines),
-                'prod': len(self.prod_lines),
-                'max': max(len(self.dev_lines), len(self.prod_lines))
+                'dev': self.dev_line_count,
+                'prod': self.prod_line_count,
+                'max': max(self.dev_line_count, self.prod_line_count)
             },
             'changes': {
                 'added': total_added,
@@ -100,7 +151,10 @@ class TXTComparator:
         
         a = self.analytics
         
-        html = f"""<!DOCTYPE html>
+        # Build HTML in parts for memory efficiency
+        html_parts = []
+        
+        html_parts.append(f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -550,52 +604,71 @@ class TXTComparator:
                 <div class="page-content">
                     <div class="page-column">
                         <h3>Dev TXT</h3>
-                        <div class="content">"""
+                        <div class="content">""")
         
-        if self.dev_lines and "".join(self.dev_lines).strip():
+        # Generate content in chunks for large files
+        print(f"      Generating HTML content...", end='', flush=True)
+        
+        dev_has_content = self.dev_line_count > 0
+        
+        if dev_has_content:
+            line_count = 0
             for line in self.diff:
                 if line.startswith('- '):
-                    html += f'<div class="line removed">{escape(line[2:])}</div>'
+                    html_parts.append(f'<div class="line removed">{escape(line[2:])}</div>')
                 elif line.startswith('? '):
                     continue
                 elif line.startswith('+ '):
                     continue
                 else:
                     content = line[2:] if line.startswith('  ') else line
-                    html += f'<div class="line">{escape(content)}</div>'
+                    html_parts.append(f'<div class="line">{escape(content)}</div>')
+                
+                line_count += 1
+                if line_count % 1000 == 0:
+                    print(f"\r      Generating HTML content... {line_count}/{len(self.diff)} lines", end='', flush=True)
         else:
-            html += '<div class="empty-page">📭 No content in this file</div>'
+            html_parts.append('<div class="empty-page">🔭 No content in this file</div>')
         
-        html += """</div>
+        html_parts.append("""</div>
                     </div>
                     <div class="page-column">
                         <h3>Prod TXT</h3>
-                        <div class="content">"""
+                        <div class="content">""")
         
-        if self.prod_lines and "".join(self.prod_lines).strip():
+        prod_has_content = self.prod_line_count > 0
+        
+        if prod_has_content:
+            line_count = 0
             for line in self.diff:
                 if line.startswith('+ '):
-                    html += f'<div class="line added">{escape(line[2:])}</div>'
+                    html_parts.append(f'<div class="line added">{escape(line[2:])}</div>')
                 elif line.startswith('? '):
                     continue
                 elif line.startswith('- '):
                     continue
                 else:
                     content = line[2:] if line.startswith('  ') else line
-                    html += f'<div class="line">{escape(content)}</div>'
+                    html_parts.append(f'<div class="line">{escape(content)}</div>')
+                
+                line_count += 1
+                if line_count % 1000 == 0:
+                    print(f"\r      Generating HTML content... {line_count}/{len(self.diff)} lines", end='', flush=True)
         else:
-            html += '<div class="empty-page">📭 No content in this file</div>'
+            html_parts.append('<div class="empty-page">🔭 No content in this file</div>')
         
-        html += """</div>
+        print(f"\r      Generating HTML content... Done!     ")
+        
+        html_parts.append("""</div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </body>
-</html>"""
+</html>""")
         
-        return html
+        return ''.join(html_parts)
     
     def compare(self) -> Tuple[str, Dict]:
         """Main comparison workflow."""
@@ -608,18 +681,26 @@ class TXTComparator:
         print(f"   Dev:  {self.dev_txt}")
         print(f"   Prod: {self.prod_txt}")
         
-        self.dev_lines = self.load_file(self.dev_txt)
-        self.prod_lines = self.load_file(self.prod_txt)
+        dev_lines = self.load_file(self.dev_txt)
+        prod_lines = self.load_file(self.prod_txt)
         
-        if not self.dev_lines or not self.prod_lines:
+        self.dev_line_count = len(dev_lines)
+        self.prod_line_count = len(prod_lines)
+        
+        if not dev_lines and not prod_lines:
             print("❌ Failed to load one or both files!")
             return "", {}
         
-        print(f"   ✅ Dev file: {len(self.dev_lines)} lines loaded")
-        print(f"   ✅ Prod file: {len(self.prod_lines)} lines loaded")
+        print(f"   ✅ Dev file: {len(dev_lines)} lines loaded")
+        print(f"   ✅ Prod file: {len(prod_lines)} lines loaded")
         
         print(f"\n🔍 Comparing files...")
-        self.compare_files()
+        self.compare_files_streaming(dev_lines, prod_lines)
+        
+        # Clear lines from memory
+        del dev_lines
+        del prod_lines
+        gc.collect()
         
         print(f"📊 Calculating analytics...")
         self.analytics = self.calculate_analytics()
@@ -639,8 +720,10 @@ class TXTComparator:
         output_path = self.output_dir / f"{base_name}.html"
         analytics_path = self.output_dir / f"{base_name}_analytics.json"
         
+        print(f"      Writing report to disk...", end='', flush=True)
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(html)
+        print(f"\r      Writing report to disk... Done!     ")
         
         with open(analytics_path, "w", encoding="utf-8") as f:
             json.dump(self.analytics, f, indent=2)
@@ -801,6 +884,10 @@ class BatchTXTComparator:
                     'report_path': report_path,
                     'analytics': analytics
                 })
+            
+            # Clear memory between comparisons
+            del comparator
+            gc.collect()
             
             print()
         

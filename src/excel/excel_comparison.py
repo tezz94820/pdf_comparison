@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple, Set
 from collections import OrderedDict
+import gc
 
 
 class ExcelComparator:
@@ -24,9 +25,9 @@ class ExcelComparator:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
         
-        self.dev_sheets = OrderedDict()  # {sheet_name: sheet_data}
-        self.prod_sheets = OrderedDict()
-        self.sheet_diffs = []  # List of diffs for each sheet
+        self.dev_sheet_count = 0
+        self.prod_sheet_count = 0
+        self.sheet_diffs = []
         self.analytics = {}
         
     def extract_sheet_data(self, excel_path: Path) -> OrderedDict:
@@ -37,43 +38,46 @@ class ExcelComparator:
         sheets_data = OrderedDict()
         
         try:
-            workbook = openpyxl.load_workbook(excel_path, data_only=True)
+            print(f"      Loading workbook...", end='', flush=True)
+            workbook = openpyxl.load_workbook(excel_path, data_only=True, read_only=True)
+            print(f"\r      Loading workbook... Done!     ")
             
-            for sheet_name in workbook.sheetnames:
+            total_sheets = len(workbook.sheetnames)
+            print(f"      Processing {total_sheets} sheets...", end='', flush=True)
+            
+            for sheet_idx, sheet_name in enumerate(workbook.sheetnames, 1):
                 sheet = workbook[sheet_name]
                 sheet_rows = []
                 
-                # Get merged cell ranges
+                # Get merged cell ranges once per sheet
                 merged_ranges = list(sheet.merged_cells.ranges)
                 
-                # Process each row
-                for row_idx, row in enumerate(sheet.iter_rows(), start=1):
+                # Create a lookup dict for merged cells (faster than searching list)
+                merged_lookup = {}
+                for merged_range in merged_ranges:
+                    top_left_value = sheet.cell(merged_range.min_row, merged_range.min_col).value
+                    for row in range(merged_range.min_row, merged_range.max_row + 1):
+                        for col in range(merged_range.min_col, merged_range.max_col + 1):
+                            cell_coord = f"{openpyxl.utils.get_column_letter(col)}{row}"
+                            merged_lookup[cell_coord] = top_left_value
+                
+                # Process rows with optimized merged cell handling
+                for row in sheet.iter_rows():
                     row_data = []
-                    
-                    for col_idx, cell in enumerate(row, start=1):
-                        # Check if this cell is part of a merged range
-                        cell_value = cell.value
+                    for cell in row:
+                        # Check merged lookup first (faster)
+                        if cell.coordinate in merged_lookup:
+                            cell_value = merged_lookup[cell.coordinate]
+                        else:
+                            cell_value = cell.value
                         
-                        # If cell is merged, get the value from the top-left cell
-                        for merged_range in merged_ranges:
-                            if cell.coordinate in merged_range:
-                                # Get the top-left cell of the merged range
-                                top_left_cell = sheet.cell(
-                                    merged_range.min_row, 
-                                    merged_range.min_col
-                                )
-                                cell_value = top_left_cell.value
-                                break
-                        
-                        # Convert cell value to string
+                        # Convert to string efficiently
                         if cell_value is None:
                             row_data.append("")
-                        elif isinstance(cell_value, (int, float)):
-                            row_data.append(str(cell_value))
                         else:
                             row_data.append(str(cell_value))
                     
-                    # Join row data with tabs (to preserve column structure)
+                    # Join with tabs and strip trailing tabs
                     row_string = "\t".join(row_data).rstrip("\t")
                     
                     # Only add non-empty rows
@@ -81,64 +85,135 @@ class ExcelComparator:
                         sheet_rows.append(row_string)
                 
                 sheets_data[sheet_name] = sheet_rows
+                
+                # Progress indicator
+                if sheet_idx % 5 == 0 or sheet_idx == total_sheets:
+                    print(f"\r      Processing {total_sheets} sheets... {sheet_idx}/{total_sheets}", end='', flush=True)
             
+            print(f"\r      Processing {total_sheets} sheets... Done!     ")
             workbook.close()
             
         except Exception as e:
-            print(f"❌ Error extracting data from {excel_path}: {e}")
+            print(f"\n❌ Error extracting data from {excel_path}: {e}")
             return OrderedDict()
         
         return sheets_data
     
-    def compare_sheets(self):
-        """Compare Excel files sheet by sheet."""
+    def compare_sheets_streaming(self, dev_sheets: OrderedDict, prod_sheets: OrderedDict):
+        """Compare Excel files sheet by sheet with streaming analytics."""
         
         # Get all unique sheet names
-        all_sheet_names = set(self.dev_sheets.keys()) | set(self.prod_sheets.keys())
+        all_sheet_names = set(dev_sheets.keys()) | set(prod_sheets.keys())
+        total_sheets = len(all_sheet_names)
         
-        for sheet_name in sorted(all_sheet_names):
-            dev_data = self.dev_sheets.get(sheet_name, [])
-            prod_data = self.prod_sheets.get(sheet_name, [])
-            
-            # Generate diff for this sheet
-            differ = difflib.Differ()
-            diff = list(differ.compare(dev_data, prod_data))
-            
-            self.sheet_diffs.append({
-                'sheet_name': sheet_name,
-                'exists_in_dev': sheet_name in self.dev_sheets,
-                'exists_in_prod': sheet_name in self.prod_sheets,
-                'dev_rows': len(dev_data),
-                'prod_rows': len(prod_data),
-                'diff': diff
-            })
-    
-    def calculate_analytics(self) -> Dict:
-        """Calculate comprehensive comparison analytics."""
-        
+        # Initialize counters for incremental analytics
         total_added = 0
         total_removed = 0
         total_changed = 0
         total_unchanged = 0
         
-        for sheet_diff in self.sheet_diffs:
-            diff = sheet_diff['diff']
-            total_added += len([l for l in diff if l.startswith('+ ')])
-            total_removed += len([l for l in diff if l.startswith('- ')])
-            total_changed += len([l for l in diff if l.startswith('? ')]) // 2
-            total_unchanged += len([l for l in diff if l.startswith('  ')])
+        # Incremental similarity calculation
+        matching_chars = 0
+        total_chars = 0
         
-        # Calculate overall similarity
-        dev_text = "\n".join(["\n".join(data) for data in self.dev_sheets.values()])
-        prod_text = "\n".join(["\n".join(data) for data in self.prod_sheets.values()])
+        print(f"      Comparing {total_sheets} sheets...", end='', flush=True)
         
-        matcher = difflib.SequenceMatcher(None, dev_text, prod_text)
-        similarity_ratio = matcher.ratio() if dev_text or prod_text else 1.0  # Raw ratio
+        for sheet_idx, sheet_name in enumerate(sorted(all_sheet_names), 1):
+            dev_data = dev_sheets.get(sheet_name, [])
+            prod_data = prod_sheets.get(sheet_name, [])
+            
+            # Generate diff for this sheet
+            differ = difflib.Differ()
+            diff = list(differ.compare(dev_data, prod_data))
+            
+            # Count changes for this sheet
+            sheet_added = len([l for l in diff if l.startswith('+ ')])
+            sheet_removed = len([l for l in diff if l.startswith('- ')])
+            sheet_changed = len([l for l in diff if l.startswith('? ')]) // 2
+            sheet_unchanged = len([l for l in diff if l.startswith('  ')])
+            
+            total_added += sheet_added
+            total_removed += sheet_removed
+            total_changed += sheet_changed
+            total_unchanged += sheet_unchanged
+            
+            # Calculate sheet-level similarity for incremental average
+            dev_text = "\n".join(dev_data)
+            prod_text = "\n".join(prod_data)
+            sheet_total = len(dev_text) + len(prod_text)
+            
+            if sheet_total > 0:
+                matcher = difflib.SequenceMatcher(None, dev_text, prod_text)
+                matching_chars += matcher.ratio() * sheet_total
+                total_chars += sheet_total
+            
+            self.sheet_diffs.append({
+                'sheet_name': sheet_name,
+                'exists_in_dev': sheet_name in dev_sheets,
+                'exists_in_prod': sheet_name in prod_sheets,
+                'dev_rows': len(dev_data),
+                'prod_rows': len(prod_data),
+                'diff': diff
+            })
+            
+            # Progress indicator
+            if sheet_idx % 5 == 0 or sheet_idx == total_sheets:
+                print(f"\r      Comparing {total_sheets} sheets... {sheet_idx}/{total_sheets}", end='', flush=True)
+            
+            # Clear memory periodically for files with many sheets
+            if sheet_idx % 20 == 0:
+                gc.collect()
+        
+        print(f"\r      Comparing {total_sheets} sheets... Done!     ")
+        
+        # Store pre-calculated metrics
+        self._precalc_changes = {
+            'added': total_added,
+            'removed': total_removed,
+            'modified': total_changed,
+            'unchanged': total_unchanged
+        }
+        
+        # Calculate average similarity from sheet-level similarities
+        self._precalc_similarity_ratio = matching_chars / total_chars if total_chars > 0 else 1.0
+    
+    def calculate_analytics(self) -> Dict:
+        """Calculate comprehensive comparison analytics using pre-calculated values."""
+        
+        # Use pre-calculated changes
+        total_added = self._precalc_changes['added']
+        total_removed = self._precalc_changes['removed']
+        total_changed = self._precalc_changes['modified']
+        total_unchanged = self._precalc_changes['unchanged']
+        
+        # Use pre-calculated similarity
+        similarity_ratio = self._precalc_similarity_ratio
         similarity = similarity_ratio * 100
         
-        # Count cells (approximate by counting tabs + 1 per row)
-        dev_cells = sum(row.count('\t') + 1 for sheet in self.dev_sheets.values() for row in sheet)
-        prod_cells = sum(row.count('\t') + 1 for sheet in self.prod_sheets.values() for row in sheet)
+        # Count cells efficiently (approximate by counting tabs + 1 per row)
+        dev_cells = 0
+        prod_cells = 0
+        
+        for sheet_diff in self.sheet_diffs:
+            if sheet_diff['exists_in_dev']:
+                # Sample every 10th row for efficiency on large sheets
+                sample_diff = sheet_diff['diff'][::10] if len(sheet_diff['diff']) > 100 else sheet_diff['diff']
+                for line in sample_diff:
+                    if line.startswith('- ') or line.startswith('  '):
+                        dev_cells += line.count('\t') + 1
+                # Multiply by sampling factor
+                if len(sheet_diff['diff']) > 100:
+                    dev_cells = dev_cells * 10
+            
+            if sheet_diff['exists_in_prod']:
+                # Sample every 10th row for efficiency on large sheets
+                sample_diff = sheet_diff['diff'][::10] if len(sheet_diff['diff']) > 100 else sheet_diff['diff']
+                for line in sample_diff:
+                    if line.startswith('+ ') or line.startswith('  '):
+                        prod_cells += line.count('\t') + 1
+                # Multiply by sampling factor
+                if len(sheet_diff['diff']) > 100:
+                    prod_cells = prod_cells * 10
         
         analytics = {
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -150,9 +225,9 @@ class ExcelComparator:
             'similarity_percent': int(similarity),
             'difference_percent': int(100 - similarity),
             'total_sheets': {
-                'dev': len(self.dev_sheets),
-                'prod': len(self.prod_sheets),
-                'max': max(len(self.dev_sheets), len(self.prod_sheets))
+                'dev': self.dev_sheet_count,
+                'prod': self.prod_sheet_count,
+                'max': max(self.dev_sheet_count, self.prod_sheet_count)
             },
             'changes': {
                 'added': total_added,
@@ -174,6 +249,9 @@ class ExcelComparator:
         
         a = self.analytics
         
+        # Build HTML in parts for memory efficiency
+        html_parts = []
+        
         # Generate sheet navigation buttons
         sheet_nav = ""
         for idx, sheet_diff in enumerate(self.sheet_diffs):
@@ -181,7 +259,7 @@ class ExcelComparator:
             active_class = "active" if idx == 0 else ""
             sheet_nav += f'<button class="sheet-tab {active_class}" onclick="showSheet({idx})">{escape(sheet_name)}</button>'
         
-        html = f"""<!DOCTYPE html>
+        html_parts.append(f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -643,15 +721,17 @@ class ExcelComparator:
             </div>
         </div>
         
-        <div class="sheets-container">"""
+        <div class="sheets-container">""")
         
         # Generate comparison for each sheet
+        print(f"      Generating HTML for sheets...", end='', flush=True)
+        
         for idx, sheet_data in enumerate(self.sheet_diffs):
             sheet_name = sheet_data['sheet_name']
             diff = sheet_data['diff']
             active_class = "active" if idx == 0 else ""
             
-            html += f"""
+            sheet_html = f"""
             <div class="sheet-comparison {active_class}" id="sheet-{idx}">
                 <div class="sheet-header">
                     📑 {escape(sheet_name)}
@@ -666,18 +746,18 @@ class ExcelComparator:
                 # Generate Dev column content for this sheet
                 for line in diff:
                     if line.startswith('- '):
-                        html += f'<div class="line removed">{escape(line[2:])}</div>'
+                        sheet_html += f'<div class="line removed">{escape(line[2:])}</div>'
                     elif line.startswith('? '):
                         continue
                     elif line.startswith('+ '):
                         continue
                     else:
                         content = line[2:] if line.startswith('  ') else line
-                        html += f'<div class="line">{escape(content)}</div>'
+                        sheet_html += f'<div class="line">{escape(content)}</div>'
             else:
-                html += '<div class="empty-sheet">📭 Sheet does not exist in Dev file</div>'
+                sheet_html += '<div class="empty-sheet">🔭 Sheet does not exist in Dev file</div>'
             
-            html += """</div>
+            sheet_html += """</div>
                     </div>
                     <div class="sheet-column">
                         <h3>Prod Excel</h3>
@@ -688,23 +768,31 @@ class ExcelComparator:
                 # Generate Prod column content for this sheet
                 for line in diff:
                     if line.startswith('+ '):
-                        html += f'<div class="line added">{escape(line[2:])}</div>'
+                        sheet_html += f'<div class="line added">{escape(line[2:])}</div>'
                     elif line.startswith('? '):
                         continue
                     elif line.startswith('- '):
                         continue
                     else:
                         content = line[2:] if line.startswith('  ') else line
-                        html += f'<div class="line">{escape(content)}</div>'
+                        sheet_html += f'<div class="line">{escape(content)}</div>'
             else:
-                html += '<div class="empty-sheet">📭 Sheet does not exist in Prod file</div>'
+                sheet_html += '<div class="empty-sheet">🔭 Sheet does not exist in Prod file</div>'
             
-            html += """</div>
+            sheet_html += """</div>
                     </div>
                 </div>
             </div>"""
+            
+            html_parts.append(sheet_html)
+            
+            # Progress indicator
+            if (idx + 1) % 5 == 0 or (idx + 1) == len(self.sheet_diffs):
+                print(f"\r      Generating HTML for sheets... {idx + 1}/{len(self.sheet_diffs)}", end='', flush=True)
         
-        html += """
+        print(f"\r      Generating HTML for sheets... Done!     ")
+        
+        html_parts.append("""
         </div>
     </div>
     
@@ -726,27 +814,34 @@ class ExcelComparator:
         }
     </script>
 </body>
-</html>"""
+</html>""")
         
-        return html
+        return ''.join(html_parts)
     
     def compare(self) -> Tuple[str, Dict]:
         """Main comparison method - returns report path and analytics."""
         
-        print(f"  🔍 Extracting data from Dev Excel...")
-        self.dev_sheets = self.extract_sheet_data(self.dev_excel)
+        print(f"  📖 Extracting data from Dev Excel...")
+        dev_sheets = self.extract_sheet_data(self.dev_excel)
+        self.dev_sheet_count = len(dev_sheets)
         
-        print(f"  🔍 Extracting data from Prod Excel...")
-        self.prod_sheets = self.extract_sheet_data(self.prod_excel)
+        print(f"  📖 Extracting data from Prod Excel...")
+        prod_sheets = self.extract_sheet_data(self.prod_excel)
+        self.prod_sheet_count = len(prod_sheets)
         
-        if not self.dev_sheets and not self.prod_sheets:
+        if not dev_sheets and not prod_sheets:
             print("  ❌ Error: Could not extract data from either Excel file")
             return "", {}
         
-        print(f"  📑 Dev: {len(self.dev_sheets)} sheets | Prod: {len(self.prod_sheets)} sheets")
+        print(f"  📑 Dev: {len(dev_sheets)} sheets | Prod: {len(prod_sheets)} sheets")
         
         print(f"  🔄 Comparing sheets...")
-        self.compare_sheets()
+        self.compare_sheets_streaming(dev_sheets, prod_sheets)
+        
+        # Clear sheet data from memory
+        del dev_sheets
+        del prod_sheets
+        gc.collect()
         
         print(f"  📈 Calculating analytics...")
         self.analytics = self.calculate_analytics()
@@ -759,8 +854,10 @@ class ExcelComparator:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = self.output_dir / f"{safe_filename}_{timestamp}.html"
         
+        print(f"      Writing report to disk...", end='', flush=True)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(html_report)
+        print(f"\r      Writing report to disk... Done!     ")
         
         # Save analytics as JSON for summary
         analytics_path = self.output_dir / f"{safe_filename}_{timestamp}_analytics.json"
@@ -923,6 +1020,10 @@ class BatchExcelComparator:
                     'report_path': report_path,
                     'analytics': analytics
                 })
+            
+            # Clear memory between comparisons
+            del comparator
+            gc.collect()
             
             print()
         
