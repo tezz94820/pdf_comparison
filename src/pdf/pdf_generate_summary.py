@@ -22,16 +22,16 @@ class SummaryGenerator:
         """Load all analytics JSON files from reports directory."""
         
         if not self.reports_dir.exists():
-            print(f"âŒ Reports directory not found: {self.reports_dir}")
+            print(f"❌ Reports directory not found: {self.reports_dir}")
             return []
         
         json_files = sorted(self.reports_dir.glob("*_analytics.json"))
         
         if not json_files:
-            print(f"âŒ No analytics files found in {self.reports_dir}")
+            print(f"❌ No analytics files found in {self.reports_dir}")
             return []
         
-        print(f"ðŸ'‚ Found {len(json_files)} analytics files")
+        print(f"📂 Found {len(json_files)} analytics files")
         
         for json_file in json_files:
             try:
@@ -41,9 +41,9 @@ class SummaryGenerator:
                     html_file = json_file.stem.replace('_analytics', '') + '.html'
                     data['report_file'] = html_file
                     self.analytics_data.append(data)
-                    print(f"   âœ… Loaded: {json_file.name}")
+                    print(f"   ✅ Loaded: {json_file.name}")
             except Exception as e:
-                print(f"   âŒ Error loading {json_file.name}: {e}")
+                print(f"   ❌ Error loading {json_file.name}: {e}")
         
         return self.analytics_data
     
@@ -55,63 +55,34 @@ class SummaryGenerator:
         if total_files == 0:
             return {}
         
-        total_added = 0
-        total_removed = 0
-        total_modified = 0
-        total_unchanged = 0
-        total_similarity = 0
+        total_added = sum(a['changes']['added'] for a in self.analytics_data)
+        total_removed = sum(a['changes']['removed'] for a in self.analytics_data)
+        total_modified = sum(a['changes']['modified'] for a in self.analytics_data)
+        total_unchanged = sum(a['changes']['unchanged'] for a in self.analytics_data)
         
-        total_pages_dev = 0
-        total_pages_prod = 0
-        total_chars_dev = 0
-        total_chars_prod = 0
+        avg_similarity_ratio = sum(a.get('similarity_ratio', a['similarity_percent'] / 100) for a in self.analytics_data) / total_files
+        avg_similarity = avg_similarity_ratio * 100
         
-        identical = 0
-        high_similarity = 0
-        medium_similarity = 0
-        low_similarity = 0
+        # Count files by similarity ranges
+        identical = sum(1 for a in self.analytics_data if a['similarity_percent'] == 100)
+        high_similarity = sum(1 for a in self.analytics_data if 90 <= a['similarity_percent'] < 100)
+        medium_similarity = sum(1 for a in self.analytics_data if 70 <= a['similarity_percent'] < 90)
+        low_similarity = sum(1 for a in self.analytics_data if a['similarity_percent'] < 70)
         
-        most_changes_list = []
-        least_similar_list = []
+        total_pages_dev = sum(a['total_pages']['dev'] for a in self.analytics_data)
+        total_pages_prod = sum(a['total_pages']['prod'] for a in self.analytics_data)
         
-        # Single pass through analytics data
-        for a in self.analytics_data:
-            total_added += a['changes']['added']
-            total_removed += a['changes']['removed']
-            total_modified += a['changes']['modified']
-            total_unchanged += a['changes']['unchanged']
-            
-            similarity_percent = a['similarity_percent']
-            total_similarity += a.get('similarity_ratio', similarity_percent / 100)
-            
-            if similarity_percent == 100:
-                identical += 1
-            elif similarity_percent >= 90:
-                high_similarity += 1
-            elif similarity_percent >= 70:
-                medium_similarity += 1
-            else:
-                low_similarity += 1
-            
-            total_pages_dev += a['total_pages']['dev']
-            total_pages_prod += a['total_pages']['prod']
-            
-            total_chars_dev += a['characters']['dev']
-            total_chars_prod += a['characters']['prod']
-            
-            # Track for sorting later
-            change_count = a['changes']['added'] + a['changes']['removed'] + a['changes']['modified']
-            most_changes_list.append((change_count, a))
-            least_similar_list.append((similarity_percent, a))
+        total_chars_dev = sum(a['characters']['dev'] for a in self.analytics_data)
+        total_chars_prod = sum(a['characters']['prod'] for a in self.analytics_data)
         
-        avg_similarity = (total_similarity / total_files) * 100
+        # Find files with most changes
+        most_changes = sorted(self.analytics_data, 
+                            key=lambda x: x['changes']['added'] + x['changes']['removed'] + x['changes']['modified'],
+                            reverse=True)[:5]
         
-        # Sort once for top 5
-        most_changes = sorted(most_changes_list, reverse=True)[:5]
-        most_changes = [item[1] for item in most_changes]
-        
-        least_similar = sorted(least_similar_list)[:5]
-        least_similar = [item[1] for item in least_similar]
+        # Find files with least similarity
+        least_similar = sorted(self.analytics_data, 
+                              key=lambda x: x['similarity_percent'])[:5]
         
         return {
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -145,6 +116,7 @@ class SummaryGenerator:
     def generate_summary_html(self, stats: Dict) -> str:
         """Generate beautiful HTML summary report."""
         
+        # Build HTML in parts to optimize memory
         html_parts = []
         
         html_parts.append(f"""<!DOCTYPE html>
@@ -389,6 +361,11 @@ class SummaryGenerator:
             color: #721c24;
         }}
         
+        .badge-info {{
+            background: #d1ecf1;
+            color: #0c5460;
+        }}
+        
         .change-indicator {{
             display: inline-flex;
             align-items: center;
@@ -426,12 +403,12 @@ class SummaryGenerator:
 <body>
     <div class="main-container">
         <div class="header">
-            <h1>ðŸ"Š Master Summary Report</h1>
-            <div class="subtitle">Batch PDF Comparison Analysis â€¢ {stats['timestamp']}</div>
+            <h1>📊 Master Summary Report</h1>
+            <div class="subtitle">Batch PDF Comparison Analysis • {stats['timestamp']}</div>
         </div>
         
         <div class="summary-dashboard">
-            <h2 class="section-title">ðŸ"ˆ Aggregate Statistics</h2>
+            <h2 class="section-title">📈 Aggregate Statistics</h2>
             
             <div class="stats-grid">
                 <div class="stat-card">
@@ -484,7 +461,7 @@ class SummaryGenerator:
             </div>
             
             <div class="similarity-breakdown">
-                <h3>ðŸŽ¯ Similarity Distribution</h3>
+                <h3>🎯 Similarity Distribution</h3>
                 <div class="similarity-bars">
                     <div class="similarity-bar-item">
                         <div class="bar-label">Identical (100%)</div>
@@ -529,7 +506,7 @@ class SummaryGenerator:
             </div>
             
             <div class="files-table">
-                <h3>ðŸ"¥ Top 5 Files with Most Changes</h3>
+                <h3>🔥 Top 5 Files with Most Changes</h3>
                 <table>
                     <thead>
                         <tr>
@@ -568,7 +545,7 @@ class SummaryGenerator:
                             <td><span class="change-indicator change-removed">-{file_data['changes']['removed']}</span></td>
                             <td><span class="change-indicator change-modified">~{file_data['changes']['modified']}</span></td>
                             <td><strong>{total_changes:,}</strong></td>
-                            <td><a href="{file_data['report_file']}" class="file-link">ðŸ"„ View Report</a></td>
+                            <td><a href="{file_data['report_file']}" class="file-link">📄 View Report</a></td>
                         </tr>""")
         
         html_parts.append("""
@@ -577,7 +554,7 @@ class SummaryGenerator:
             </div>
             
             <div class="files-table">
-                <h3>âš ï¸ Top 5 Files with Lowest Similarity</h3>
+                <h3>⚠️ Top 5 Files with Lowest Similarity</h3>
                 <table>
                     <thead>
                         <tr>
@@ -612,7 +589,7 @@ class SummaryGenerator:
                             <td><span class="change-indicator change-added">+{file_data['changes']['added']}</span></td>
                             <td><span class="change-indicator change-removed">-{file_data['changes']['removed']}</span></td>
                             <td><span class="change-indicator change-modified">~{file_data['changes']['modified']}</span></td>
-                            <td><a href="{file_data['report_file']}" class="file-link">ðŸ"„ View Report</a></td>
+                            <td><a href="{file_data['report_file']}" class="file-link">📄 View Report</a></td>
                         </tr>""")
         
         html_parts.append("""
@@ -621,7 +598,7 @@ class SummaryGenerator:
             </div>
             
             <div class="files-table">
-                <h3>ðŸ"‹ All Comparison Results</h3>
+                <h3>📋 All Comparison Results</h3>
                 <table>
                     <thead>
                         <tr>
@@ -663,7 +640,7 @@ class SummaryGenerator:
                                 <span class="change-indicator change-removed">-{file_data['changes']['removed']}</span>
                                 <span class="change-indicator change-modified">~{file_data['changes']['modified']}</span>
                             </td>
-                            <td><a href="{file_data['report_file']}" class="file-link">ðŸ"„ View Report</a></td>
+                            <td><a href="{file_data['report_file']}" class="file-link">📄 View Report</a></td>
                         </tr>""")
         
         html_parts.append("""
@@ -675,43 +652,43 @@ class SummaryGenerator:
 </body>
 </html>""")
         
-        return "".join(html_parts)
+        return ''.join(html_parts)
     
     def generate_summary(self) -> str:
         """Generate master summary report."""
         
         print("\n" + "="*80)
-        print("ðŸ'Š GENERATING MASTER SUMMARY REPORT")
+        print("📊 GENERATING MASTER SUMMARY REPORT")
         print("="*80 + "\n")
         
         analytics = self.load_analytics()
         
         if not analytics:
-            print("âŒ No analytics data found. Nothing to summarize.")
+            print("❌ No analytics data found. Nothing to summarize.")
             return ""
         
-        print(f"\nðŸ'ˆ Calculating aggregate statistics...")
+        print(f"\n📈 Calculating aggregate statistics...")
         stats = self.calculate_aggregate_stats()
         
-        print(f"ðŸŽ¨ Generating HTML summary...")
+        print(f"🎨 Generating HTML summary...")
         html = self.generate_summary_html(stats)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = self.reports_dir / f"MASTER_SUMMARY_{timestamp}.html"
         
-        with open(output_path, "w", encoding="utf-8") as f:
+        with open(output_path, 'w', encoding='utf-8') as f:
             f.write(html)
         
-        print(f"\nâœ… Master summary report generated!")
-        print(f"ðŸ' Location: {output_path.absolute()}")
-        print(f"\nðŸ'Š Summary Statistics:")
-        print(f"   â€¢ Total files compared: {stats['total_files']}")
-        print(f"   â€¢ Average similarity: {stats['similarity']['average']}%")
-        print(f"   â€¢ Total changes: {stats['aggregate_changes']['total']:,}")
-        print(f"   â€¢ Identical files: {stats['similarity']['identical']}")
-        print(f"   â€¢ High similarity (90-99%): {stats['similarity']['high']}")
-        print(f"   â€¢ Medium similarity (70-89%): {stats['similarity']['medium']}")
-        print(f"   â€¢ Low similarity (<70%): {stats['similarity']['low']}")
+        print(f"\n✅ Master summary report generated!")
+        print(f"📁 Location: {output_path.absolute()}")
+        print(f"\n📊 Summary Statistics:")
+        print(f"   • Total files compared: {stats['total_files']}")
+        print(f"   • Average similarity: {stats['similarity']['average']}%")
+        print(f"   • Total changes: {stats['aggregate_changes']['total']:,}")
+        print(f"   • Identical files: {stats['similarity']['identical']}")
+        print(f"   • High similarity (90-99%): {stats['similarity']['high']}")
+        print(f"   • Medium similarity (70-89%): {stats['similarity']['medium']}")
+        print(f"   • Low similarity (<70%): {stats['similarity']['low']}")
         
         return str(output_path.absolute())
 
@@ -720,7 +697,7 @@ def main():
     """Main entry point for standalone summary generation."""
     
     print("="*80)
-    print("ðŸš€ MASTER SUMMARY REPORT GENERATOR")
+    print("🚀 MASTER SUMMARY REPORT GENERATOR")
     print("="*80)
     
     generator = SummaryGenerator(reports_dir="reports/pdf")
@@ -728,9 +705,9 @@ def main():
     
     if summary_path:
         print("\n" + "="*80)
-        print("âœ… SUMMARY GENERATION COMPLETE!")
+        print("✅ SUMMARY GENERATION COMPLETE!")
         print("="*80)
-        print(f"\nðŸŒ Open the summary in your browser:")
+        print(f"\n🌐 Open the summary in your browser:")
         print(f"   file://{summary_path}")
 
 

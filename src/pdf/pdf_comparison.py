@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple, Set
 from collections import Counter
+import gc
 
 
 class PDFComparator:
@@ -24,8 +25,8 @@ class PDFComparator:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
         
-        self.dev_pages = []
-        self.prod_pages = []
+        self.dev_page_count = 0
+        self.prod_page_count = 0
         self.page_diffs = []
         self.analytics = {}
         
@@ -35,35 +36,45 @@ class PDFComparator:
         
         try:
             with fitz.open(pdf_path) as pdf:
+                total_pages = len(pdf)
+                print(f"      Processing {total_pages} pages...", end='', flush=True)
+                
                 for page_num, page in enumerate(pdf, 1):
-                    blocks = page.get_text("dict")["blocks"]
+                    # Use faster text extraction method
+                    text = page.get_text("text")
+                    pages.append(text if text.strip() else "")
                     
-                    page_content = []
-                    for block in blocks:
-                        if "lines" in block:
-                            for line in block["lines"]:
-                                line_parts = []
-                                for span in line["spans"]:
-                                    line_parts.append(span["text"])
-                                line_text = "".join(line_parts)
-                                if line_text.strip():
-                                    page_content.append(line_text)
-                    
-                    pages.append("\n".join(page_content) if page_content else "")
+                    # Progress indicator for large files
+                    if page_num % 100 == 0:
+                        print(f"\r      Processing {total_pages} pages... {page_num}/{total_pages}", end='', flush=True)
+                
+                print(f"\r      Processing {total_pages} pages... Done!     ")
                         
         except Exception as e:
-            print(f"âŒ Error extracting text from {pdf_path}: {e}")
+            print(f"❌ Error extracting text from {pdf_path}: {e}")
             return []
         
         return pages
     
-    def compare_pages(self):
-        """Compare PDFs page by page and store differences."""
-        max_pages = max(len(self.dev_pages), len(self.prod_pages))
+    def compare_pages_streaming(self, dev_pages: List[str], prod_pages: List[str]):
+        """Compare PDFs page by page with streaming to save memory."""
+        max_pages = max(len(dev_pages), len(prod_pages))
+        
+        # Initialize counters for incremental analytics
+        total_added = 0
+        total_removed = 0
+        total_changed = 0
+        total_unchanged = 0
+        
+        # Incremental similarity calculation
+        matching_chars = 0
+        total_chars = 0
+        
+        print(f"      Comparing {max_pages} pages...", end='', flush=True)
         
         for page_num in range(max_pages):
-            dev_content = self.dev_pages[page_num] if page_num < len(self.dev_pages) else ""
-            prod_content = self.prod_pages[page_num] if page_num < len(self.prod_pages) else ""
+            dev_content = dev_pages[page_num] if page_num < len(dev_pages) else ""
+            prod_content = prod_pages[page_num] if page_num < len(prod_pages) else ""
             
             dev_lines = dev_content.splitlines()
             prod_lines = prod_content.splitlines()
@@ -71,72 +82,74 @@ class PDFComparator:
             differ = difflib.Differ()
             diff = list(differ.compare(dev_lines, prod_lines))
             
+            # Count changes for this page
+            page_added = len([l for l in diff if l.startswith('+ ')])
+            page_removed = len([l for l in diff if l.startswith('- ')])
+            page_changed = len([l for l in diff if l.startswith('? ')]) // 2
+            page_unchanged = len([l for l in diff if l.startswith('  ')])
+            
+            total_added += page_added
+            total_removed += page_removed
+            total_changed += page_changed
+            total_unchanged += page_unchanged
+            
+            # Calculate page-level similarity for incremental average
+            page_total = len(dev_content) + len(prod_content)
+            if page_total > 0:
+                matcher = difflib.SequenceMatcher(None, dev_content, prod_content)
+                matching_chars += matcher.ratio() * page_total
+                total_chars += page_total
+            
             self.page_diffs.append({
                 'page_num': page_num + 1,
+                'dev_lines': dev_lines,
+                'prod_lines': prod_lines,
                 'diff': diff
             })
+            
+            # Progress indicator
+            if (page_num + 1) % 100 == 0:
+                print(f"\r      Comparing {max_pages} pages... {page_num + 1}/{max_pages}", end='', flush=True)
+            
+            # Clear memory periodically for very large files
+            if (page_num + 1) % 500 == 0:
+                gc.collect()
+        
+        print(f"\r      Comparing {max_pages} pages... Done!     ")
+        
+        # Store pre-calculated metrics
+        self._precalc_changes = {
+            'added': total_added,
+            'removed': total_removed,
+            'modified': total_changed,
+            'unchanged': total_unchanged
+        }
+        
+        # Calculate average similarity from page-level similarities
+        self._precalc_similarity_ratio = matching_chars / total_chars if total_chars > 0 else 1.0
     
     def calculate_analytics(self) -> Dict:
-        """Calculate comprehensive comparison analytics."""
+        """Calculate comprehensive comparison analytics using pre-calculated values."""
         
-        total_added = 0
-        total_removed = 0
-        total_changed = 0
-        total_unchanged = 0
-        total_dev_chars = 0
-        total_prod_chars = 0
+        # Use pre-calculated changes
+        total_added = self._precalc_changes['added']
+        total_removed = self._precalc_changes['removed']
+        total_changed = self._precalc_changes['modified']
+        total_unchanged = self._precalc_changes['unchanged']
         
-        # Single pass through all diffs for efficient counting
-        for page_diff in self.page_diffs:
-            diff = page_diff['diff']
-            for line in diff:
-                if line.startswith('+ '):
-                    total_added += 1
-                    total_prod_chars += len(line[2:])
-                elif line.startswith('- '):
-                    total_removed += 1
-                    total_dev_chars += len(line[2:])
-                elif line.startswith('? '):
-                    pass
-                else:
-                    content = line[2:] if line.startswith('  ') else line
-                    total_unchanged += 1
-                    total_dev_chars += len(content)
-                    total_prod_chars += len(content)
-        
-        # Account for unchanged lines in dev/prod separately
-        for page_num, page_diff in enumerate(self.page_diffs):
-            diff = page_diff['diff']
-            for line in diff:
-                if line.startswith('  '):
-                    pass
-                elif line.startswith('- '):
-                    pass
-                elif line.startswith('+ '):
-                    pass
-                elif line.startswith('? '):
-                    total_changed += 1
-        
-        total_changed = total_changed // 2
-        
-        # Calculate character and word counts from original pages
-        dev_text_chars = sum(len(page) for page in self.dev_pages)
-        prod_text_chars = sum(len(page) for page in self.prod_pages)
-        
-        # Calculate word counts efficiently
-        dev_words = sum(len(page.split()) for page in self.dev_pages)
-        prod_words = sum(len(page.split()) for page in self.prod_pages)
-        
-        # Calculate similarity based on page-level diffs (more efficient than SequenceMatcher)
-        total_changes = total_added + total_removed + total_changed
-        total_all = total_added + total_removed + total_changed + total_unchanged
-        
-        if total_all > 0:
-            similarity_ratio = (total_all - total_changes) / total_all
-        else:
-            similarity_ratio = 1.0
-        
+        # Use pre-calculated similarity
+        similarity_ratio = self._precalc_similarity_ratio
         similarity = similarity_ratio * 100
+        
+        # Calculate character and word counts efficiently
+        dev_chars = sum(len(page_diff['dev_lines']) for page_diff in self.page_diffs)
+        prod_chars = sum(len(page_diff['prod_lines']) for page_diff in self.page_diffs)
+        
+        # Estimate word counts without full text concatenation
+        dev_words = sum(len(' '.join(page_diff['dev_lines']).split()) for page_diff in self.page_diffs[::10])
+        prod_words = sum(len(' '.join(page_diff['prod_lines']).split()) for page_diff in self.page_diffs[::10])
+        dev_words = dev_words * 10  # Approximate based on sampling
+        prod_words = prod_words * 10
         
         analytics = {
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -148,9 +161,9 @@ class PDFComparator:
             'similarity_percent': int(similarity),
             'difference_percent': int(100 - similarity),
             'total_pages': {
-                'dev': len(self.dev_pages),
-                'prod': len(self.prod_pages),
-                'max': max(len(self.dev_pages), len(self.prod_pages))
+                'dev': self.dev_page_count,
+                'prod': self.prod_page_count,
+                'max': max(self.dev_page_count, self.prod_page_count)
             },
             'changes': {
                 'added': total_added,
@@ -159,9 +172,9 @@ class PDFComparator:
                 'unchanged': total_unchanged
             },
             'characters': {
-                'dev': dev_text_chars,
-                'prod': prod_text_chars,
-                'diff': abs(dev_text_chars - prod_text_chars)
+                'dev': dev_chars,
+                'prod': prod_chars,
+                'diff': abs(dev_chars - prod_chars)
             },
             'words': {
                 'dev': dev_words,
@@ -177,6 +190,7 @@ class PDFComparator:
         
         a = self.analytics
         
+        # Build HTML in chunks to avoid memory issues
         html_parts = []
         
         html_parts.append(f"""<!DOCTYPE html>
@@ -512,13 +526,13 @@ class PDFComparator:
 <body>
     <div class="main-container">
         <div class="header">
-            <h1>ðŸ"Š PDF Comparison Report</h1>
-            <div class="subtitle">{a['dev_file']} vs {a['prod_file']} â€¢ {a['timestamp']}</div>
+            <h1>📊 PDF Comparison Report</h1>
+            <div class="subtitle">{a['dev_file']} vs {a['prod_file']} • {a['timestamp']}</div>
         </div>
         
         <div class="analytics-dashboard">
             <h2 style="text-align: center; margin-bottom: 30px; color: #333; font-size: 1.8em;">
-                ðŸ"ˆ Analytics Dashboard
+                📈 Analytics Dashboard
             </h2>
             
             <div class="analytics-grid">
@@ -573,7 +587,7 @@ class PDFComparator:
             
             <div class="file-info">
                 <div class="file-card">
-                    <h3>ðŸ"„ Dev PDF</h3>
+                    <h3>📄 Dev PDF</h3>
                     <div class="file-detail">
                         <span class="file-label">Filename:</span>
                         <span class="file-value">{a['dev_file']}</span>
@@ -589,7 +603,7 @@ class PDFComparator:
                 </div>
                 
                 <div class="file-card">
-                    <h3>ðŸ"„ Prod PDF</h3>
+                    <h3>📄 Prod PDF</h3>
                     <div class="file-detail">
                         <span class="file-label">Filename:</span>
                         <span class="file-value">{a['prod_file']}</span>
@@ -623,58 +637,69 @@ class PDFComparator:
         
         <div class="pages-container">""")
         
-        for page_data in self.page_diffs:
+        # Generate page comparisons in chunks
+        print(f"      Generating HTML report...", end='', flush=True)
+        
+        for idx, page_data in enumerate(self.page_diffs):
             page_num = page_data['page_num']
             diff = page_data['diff']
             
-            html_parts.append(f"""
+            page_html = f"""
             <div class="page-comparison">
                 <div class="page-header">
-                    ðŸ"„ Page {page_num}
+                    📄 Page {page_num}
                 </div>
                 <div class="page-content">
                     <div class="page-column">
                         <h3>Dev PDF</h3>
-                        <div class="content">""")
+                        <div class="content">"""
             
-            if page_num <= len(self.dev_pages) and self.dev_pages[page_num - 1].strip():
+            if page_num <= self.dev_page_count and any(line.strip() for line in page_data['dev_lines']):
                 for line in diff:
                     if line.startswith('- '):
-                        html_parts.append(f'<div class="line removed">{escape(line[2:])}</div>')
+                        page_html += f'<div class="line removed">{escape(line[2:])}</div>'
                     elif line.startswith('? '):
                         continue
                     elif line.startswith('+ '):
                         continue
                     else:
                         content = line[2:] if line.startswith('  ') else line
-                        html_parts.append(f'<div class="line">{escape(content)}</div>')
+                        page_html += f'<div class="line">{escape(content)}</div>'
             else:
-                html_parts.append('<div class="empty-page">ðŸ"­ No content on this page</div>')
+                page_html += '<div class="empty-page">🔭 No content on this page</div>'
             
-            html_parts.append("""</div>
+            page_html += """</div>
                     </div>
                     <div class="page-column">
                         <h3>Prod PDF</h3>
-                        <div class="content">""")
+                        <div class="content">"""
             
-            if page_num <= len(self.prod_pages) and self.prod_pages[page_num - 1].strip():
+            if page_num <= self.prod_page_count and any(line.strip() for line in page_data['prod_lines']):
                 for line in diff:
                     if line.startswith('+ '):
-                        html_parts.append(f'<div class="line added">{escape(line[2:])}</div>')
+                        page_html += f'<div class="line added">{escape(line[2:])}</div>'
                     elif line.startswith('? '):
                         continue
                     elif line.startswith('- '):
                         continue
                     else:
                         content = line[2:] if line.startswith('  ') else line
-                        html_parts.append(f'<div class="line">{escape(content)}</div>')
+                        page_html += f'<div class="line">{escape(content)}</div>'
             else:
-                html_parts.append('<div class="empty-page">ðŸ"­ No content on this page</div>')
+                page_html += '<div class="empty-page">🔭 No content on this page</div>'
             
-            html_parts.append("""</div>
+            page_html += """</div>
                     </div>
                 </div>
-            </div>""")
+            </div>"""
+            
+            html_parts.append(page_html)
+            
+            # Progress indicator
+            if (idx + 1) % 100 == 0:
+                print(f"\r      Generating HTML report... {idx + 1}/{len(self.page_diffs)}", end='', flush=True)
+        
+        print(f"\r      Generating HTML report... Done!     ")
         
         html_parts.append("""
         </div>
@@ -682,30 +707,37 @@ class PDFComparator:
 </body>
 </html>""")
         
-        return "".join(html_parts)
+        return ''.join(html_parts)
     
     def compare(self) -> Tuple[str, Dict]:
         """Main comparison method - returns report path and analytics."""
         
-        print(f"  ðŸ' Extracting text from Dev PDF...")
-        self.dev_pages = self.extract_text_by_page(self.dev_pdf)
+        print(f"  📖 Extracting text from Dev PDF...")
+        dev_pages = self.extract_text_by_page(self.dev_pdf)
+        self.dev_page_count = len(dev_pages)
         
-        print(f"  ðŸ' Extracting text from Prod PDF...")
-        self.prod_pages = self.extract_text_by_page(self.prod_pdf)
+        print(f"  📖 Extracting text from Prod PDF...")
+        prod_pages = self.extract_text_by_page(self.prod_pdf)
+        self.prod_page_count = len(prod_pages)
         
-        if not self.dev_pages and not self.prod_pages:
-            print("  âŒ Error: Could not extract text from either PDF")
+        if not dev_pages and not prod_pages:
+            print("  ❌ Error: Could not extract text from either PDF")
             return "", {}
         
-        print(f"  ðŸ'„ Dev: {len(self.dev_pages)} pages | Prod: {len(self.prod_pages)} pages")
+        print(f"  📄 Dev: {len(dev_pages)} pages | Prod: {len(prod_pages)} pages")
         
-        print(f"  ðŸ'„ Comparing pages...")
-        self.compare_pages()
+        print(f"  🔄 Comparing pages...")
+        self.compare_pages_streaming(dev_pages, prod_pages)
         
-        print(f"  ðŸ'ˆ Calculating analytics...")
+        # Clear page content from memory after comparison
+        del dev_pages
+        del prod_pages
+        gc.collect()
+        
+        print(f"  📈 Calculating analytics...")
         self.analytics = self.calculate_analytics()
         
-        print(f"  ðŸŽ¨ Generating HTML report...")
+        print(f"  🎨 Generating HTML report...")
         html_report = self.generate_html_report()
         
         # Save report with sanitized filename
@@ -713,15 +745,17 @@ class PDFComparator:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = self.output_dir / f"{safe_filename}_{timestamp}.html"
         
+        print(f"      Writing report to disk...", end='', flush=True)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(html_report)
+        print(f"\r      Writing report to disk... Done!     ")
         
         # Save analytics as JSON for summary
         analytics_path = self.output_dir / f"{safe_filename}_{timestamp}_analytics.json"
         with open(analytics_path, "w", encoding="utf-8") as f:
             json.dump(self.analytics, f, indent=2)
         
-        print(f"  âœ… Report generated: {output_path.name}")
+        print(f"  ✅ Report generated: {output_path.name}")
         
         return str(output_path.absolute()), self.analytics
 
@@ -748,11 +782,11 @@ class BatchPDFComparator:
         """Load file mappings from CSV file."""
         
         if not self.csv_file.exists():
-            print(f"âŒ CSV file not found: {self.csv_file}")
+            print(f"❌ CSV file not found: {self.csv_file}")
             print(f"   Please create a CSV file with columns: Sr.No, Dev Filename, Prod Filename")
             return False
         
-        print(f"ðŸ'‹ Reading CSV file: {self.csv_file}")
+        print(f"📋 Reading CSV file: {self.csv_file}")
         
         try:
             with open(self.csv_file, 'r', encoding='utf-8') as f:
@@ -760,7 +794,7 @@ class BatchPDFComparator:
                 
                 # Check if required columns exist
                 if reader.fieldnames is None:
-                    print("âŒ CSV file is empty")
+                    print("❌ CSV file is empty")
                     return False
                 
                 # Normalize column names (strip whitespace, case-insensitive)
@@ -777,7 +811,7 @@ class BatchPDFComparator:
                         prod_col = reader.fieldnames[fieldnames.index(col)]
                 
                 if not dev_col or not prod_col:
-                    print("âŒ CSV must have 'Dev Filename' and 'Prod Filename' columns")
+                    print("❌ CSV must have 'Dev Filename' and 'Prod Filename' columns")
                     print(f"   Found columns: {', '.join(reader.fieldnames)}")
                     return False
                 
@@ -794,17 +828,17 @@ class BatchPDFComparator:
                         })
                         row_count += 1
                 
-                print(f"   âœ… Loaded {row_count} file mappings")
+                print(f"   ✅ Loaded {row_count} file mappings")
                 return True
                 
         except Exception as e:
-            print(f"âŒ Error reading CSV file: {e}")
+            print(f"❌ Error reading CSV file: {e}")
             return False
     
     def validate_files(self):
         """Validate that all files in CSV exist in their respective folders."""
         
-        print(f"\nðŸ' Validating file existence...")
+        print(f"\n🔍 Validating file existence...")
         
         valid_mappings = []
         
@@ -837,11 +871,11 @@ class BatchPDFComparator:
         
         self.file_mappings = valid_mappings
         
-        print(f"   âœ… Valid file pairs: {len(valid_mappings)}")
+        print(f"   ✅ Valid file pairs: {len(valid_mappings)}")
         if self.missing_files:
-            print(f"   âš ï¸  Missing/Invalid: {len(self.missing_files)}")
+            print(f"   ⚠️  Missing/Invalid: {len(self.missing_files)}")
             for missing in self.missing_files:
-                print(f"      âŒ {missing['error']}")
+                print(f"      ❌ {missing['error']}")
     
     def compare_all(self):
         """Compare all PDF pairs from CSV mapping."""
@@ -851,17 +885,17 @@ class BatchPDFComparator:
             return
         
         if not self.file_mappings:
-            print("\nâŒ No file mappings found in CSV!")
+            print("\n❌ No file mappings found in CSV!")
             return
         
         # Validate files exist
         self.validate_files()
         
         if not self.file_mappings:
-            print("\nâŒ No valid file pairs to compare!")
+            print("\n❌ No valid file pairs to compare!")
             return
         
-        print(f"\nðŸ'„ Starting batch comparison of {len(self.file_mappings)} PDF pairs...\n")
+        print(f"\n🔄 Starting batch comparison of {len(self.file_mappings)} PDF pairs...\n")
         
         for idx, mapping in enumerate(self.file_mappings, 1):
             print(f"[{idx}/{len(self.file_mappings)}] Comparing:")
@@ -884,27 +918,31 @@ class BatchPDFComparator:
                     'analytics': analytics
                 })
             
+            # Clear memory between comparisons
+            del comparator
+            gc.collect()
+            
             print()
         
         # Generate summary
         print("=" * 80)
-        print("ðŸ'Š BATCH COMPARISON SUMMARY")
+        print("📊 BATCH COMPARISON SUMMARY")
         print("=" * 80)
-        print(f"\nâœ… Successfully compared: {len(self.comparison_results)} PDF pairs")
-        print(f"ðŸ' Reports saved to: {self.output_dir.absolute()}\n")
+        print(f"\n✅ Successfully compared: {len(self.comparison_results)} PDF pairs")
+        print(f"📁 Reports saved to: {self.output_dir.absolute()}\n")
         
         for result in self.comparison_results:
             a = result['analytics']
-            print(f"ðŸ'„ {result['dev_filename']} â†' {result['prod_filename']}")
+            print(f"📄 {result['dev_filename']} ↔ {result['prod_filename']}")
             print(f"   Similarity: {a['similarity_percent']}% | "
                   f"Added: {a['changes']['added']} | "
                   f"Removed: {a['changes']['removed']} | "
                   f"Modified: {a['changes']['modified']}")
         
         if self.missing_files:
-            print(f"\nâš ï¸  Skipped {len(self.missing_files)} pairs due to missing files")
+            print(f"\n⚠️  Skipped {len(self.missing_files)} pairs due to missing files")
         
-        print(f"\nðŸŒ Now generating master summary report...")
+        print(f"\n🌐 Now generating master summary report...")
         
         # Auto-generate summary
         from pdf_generate_summary import SummaryGenerator
@@ -912,14 +950,14 @@ class BatchPDFComparator:
         summary_path = summary_gen.generate_summary()
         
         if summary_path:
-            print(f"âœ… Master summary generated: {summary_path}")
+            print(f"✅ Master summary generated: {summary_path}")
 
 
 def main():
     """Main entry point for batch comparison."""
     
     print("="*80)
-    print("ðŸš€ PDF BATCH COMPARISON TOOL (CSV-Based)")
+    print("🚀 PDF BATCH COMPARISON TOOL (CSV-Based)")
     print("="*80)
     
     # Initialize batch comparator with CSV mapping
@@ -934,7 +972,7 @@ def main():
     batch.compare_all()
     
     print("\n" + "="*80)
-    print("âœ… BATCH COMPARISON COMPLETE!")
+    print("✅ BATCH COMPARISON COMPLETE!")
     print("="*80)
 
 
