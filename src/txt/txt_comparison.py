@@ -1,6 +1,7 @@
 """
 Professional TXT Comparison Tool with CSV-Based File Mapping
 Maps dev and prod files using a CSV configuration file
+Divides TXT files into pages for memory-efficient comparison
 """
 
 import difflib
@@ -15,94 +16,139 @@ import gc
 
 
 class TXTComparator:
-    """Professional TXT comparison with line-by-line analytics."""
+    """Professional TXT comparison with page-by-page analytics."""
     
-    def __init__(self, dev_txt: str, prod_txt: str, output_dir: str = "reports"):
+    def __init__(self, dev_txt: str, prod_txt: str, output_dir: str = "reports", page_lines: int = 500):
         self.dev_txt = Path(dev_txt)
         self.prod_txt = Path(prod_txt)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
+        self.page_lines = page_lines  # Lines per page
         
-        self.dev_line_count = 0
-        self.prod_line_count = 0
-        self.diff = []
+        self.dev_page_count = 0
+        self.prod_page_count = 0
+        self.page_diffs = []
         self.analytics = {}
         
-    def load_file(self, file_path: Path) -> List[str]:
-        """Load text file and return lines."""
+    def load_file_by_pages(self, file_path: Path) -> List[List[str]]:
+        """Load text file and divide into pages."""
         try:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                lines = f.readlines()
-                print(f"      Loaded {len(lines)} lines")
-                return lines
+                all_lines = f.readlines()
+            
+            # Divide lines into pages
+            pages = []
+            for i in range(0, len(all_lines), self.page_lines):
+                page = all_lines[i:i + self.page_lines]
+                pages.append(page)
+            
+            total_pages = len(pages)
+            print(f"      Loaded {len(all_lines)} lines divided into {total_pages} pages")
+            return pages
+            
         except Exception as e:
             print(f"❌ Error loading file {file_path}: {e}")
             return []
     
-    def compare_files_streaming(self, dev_lines: List[str], prod_lines: List[str]):
-        """Compare TXT files line by line with streaming analytics calculation."""
+    def compare_pages_streaming(self, dev_pages: List[List[str]], prod_pages: List[List[str]]):
+        """Compare TXT files page by page with streaming analytics calculation."""
+        max_pages = max(len(dev_pages), len(prod_pages))
         
-        # Calculate diff
-        differ = difflib.Differ()
-        self.diff = list(differ.compare(dev_lines, prod_lines))
+        # Initialize counters for incremental analytics
+        total_added = 0
+        total_removed = 0
+        total_changed = 0
+        total_unchanged = 0
         
-        # Pre-calculate change metrics during diff iteration
-        self._precalc_added = len([l for l in self.diff if l.startswith('+ ')])
-        self._precalc_removed = len([l for l in self.diff if l.startswith('- ')])
-        self._precalc_changed = len([l for l in self.diff if l.startswith('? ')]) // 2
-        self._precalc_unchanged = len([l for l in self.diff if l.startswith('  ')])
+        # Incremental similarity calculation
+        matching_chars = 0
+        total_chars = 0
         
-        # Calculate similarity using optimized approach
-        dev_text = "".join(dev_lines)
-        prod_text = "".join(prod_lines)
+        print(f"      Comparing {max_pages} pages...", end='', flush=True)
         
-        # For large files, use chunk-based similarity calculation
-        if len(dev_text) > 1000000 or len(prod_text) > 1000000:
-            print(f"      Calculating similarity for large file...")
-            # Calculate similarity on chunks and average
-            chunk_size = 100000
-            similarities = []
+        for page_num in range(max_pages):
+            dev_page_lines = dev_pages[page_num] if page_num < len(dev_pages) else []
+            prod_page_lines = prod_pages[page_num] if page_num < len(prod_pages) else []
             
-            dev_chunks = [dev_text[i:i+chunk_size] for i in range(0, len(dev_text), chunk_size)]
-            prod_chunks = [prod_text[i:i+chunk_size] for i in range(0, len(prod_text), chunk_size)]
-            max_chunks = max(len(dev_chunks), len(prod_chunks))
+            # Compare lines
+            differ = difflib.Differ()
+            diff = list(differ.compare(dev_page_lines, prod_page_lines))
             
-            for i in range(max_chunks):
-                dev_chunk = dev_chunks[i] if i < len(dev_chunks) else ""
-                prod_chunk = prod_chunks[i] if i < len(prod_chunks) else ""
-                
-                if dev_chunk or prod_chunk:
-                    matcher = difflib.SequenceMatcher(None, dev_chunk, prod_chunk)
-                    similarities.append(matcher.ratio())
-                    
-                if (i + 1) % 10 == 0:
-                    print(f"      Calculating similarity... {i + 1}/{max_chunks} chunks", end='\r', flush=True)
+            # Count changes for this page
+            page_added = len([l for l in diff if l.startswith('+ ')])
+            page_removed = len([l for l in diff if l.startswith('- ')])
+            page_changed = len([l for l in diff if l.startswith('? ')]) // 2
+            page_unchanged = len([l for l in diff if l.startswith('  ')])
             
-            self._precalc_similarity_ratio = sum(similarities) / len(similarities) if similarities else 1.0
-            print(f"      Calculating similarity... Done!     ")
-        else:
-            matcher = difflib.SequenceMatcher(None, dev_text, prod_text)
-            self._precalc_similarity_ratio = matcher.ratio()
+            total_added += page_added
+            total_removed += page_removed
+            total_changed += page_changed
+            total_unchanged += page_unchanged
+            
+            # Calculate page-level similarity for incremental average
+            dev_content = "".join(dev_page_lines)
+            prod_content = "".join(prod_page_lines)
+            page_total = len(dev_content) + len(prod_content)
+            
+            if page_total > 0:
+                matcher = difflib.SequenceMatcher(None, dev_content, prod_content)
+                matching_chars += matcher.ratio() * page_total
+                total_chars += page_total
+            
+            self.page_diffs.append({
+                'page_num': page_num + 1,
+                'dev_lines': dev_page_lines,
+                'prod_lines': prod_page_lines,
+                'diff': diff
+            })
+            
+            # Progress indicator
+            if (page_num + 1) % 10 == 0:
+                print(f"\r      Comparing {max_pages} pages... {page_num + 1}/{max_pages}", end='', flush=True)
+            
+            # Clear memory periodically
+            if (page_num + 1) % 100 == 0:
+                gc.collect()
+        
+        print(f"\r      Comparing {max_pages} pages... Done!     ")
+        
+        # Store pre-calculated metrics
+        self._precalc_changes = {
+            'added': total_added,
+            'removed': total_removed,
+            'modified': total_changed,
+            'unchanged': total_unchanged
+        }
+        
+        # Calculate average similarity from page-level similarities
+        self._precalc_similarity_ratio = matching_chars / total_chars if total_chars > 0 else 1.0
         
         # Pre-calculate character and word counts
-        self._precalc_dev_chars = len(dev_text)
-        self._precalc_prod_chars = len(prod_text)
-        self._precalc_dev_words = len(dev_text.split())
-        self._precalc_prod_words = len(prod_text.split())
+        dev_total_chars = sum(len("".join(page_diff['dev_lines'])) for page_diff in self.page_diffs)
+        prod_total_chars = sum(len("".join(page_diff['prod_lines'])) for page_diff in self.page_diffs)
         
-        # Clear large text variables
-        del dev_text
-        del prod_text
-        gc.collect()
+        # Estimate word counts by sampling
+        dev_words = sum(len("".join(page_diff['dev_lines']).split()) for page_diff in self.page_diffs[::10])
+        prod_words = sum(len("".join(page_diff['prod_lines']).split()) for page_diff in self.page_diffs[::10])
+        
+        # Scale up the word count based on sampling ratio
+        sampling_ratio = len(self.page_diffs) / max(len(self.page_diffs[::10]), 1)
+        dev_words = int(dev_words * sampling_ratio)
+        prod_words = int(prod_words * sampling_ratio)
+        
+        self._precalc_dev_chars = dev_total_chars
+        self._precalc_prod_chars = prod_total_chars
+        self._precalc_dev_words = dev_words
+        self._precalc_prod_words = prod_words
     
     def calculate_analytics(self) -> Dict:
         """Calculate comprehensive comparison analytics using pre-calculated values."""
         
         # Use pre-calculated values
-        total_added = self._precalc_added
-        total_removed = self._precalc_removed
-        total_changed = self._precalc_changed
-        total_unchanged = self._precalc_unchanged
+        total_added = self._precalc_changes['added']
+        total_removed = self._precalc_changes['removed']
+        total_changed = self._precalc_changes['modified']
+        total_unchanged = self._precalc_changes['unchanged']
         
         similarity_ratio = self._precalc_similarity_ratio
         similarity = similarity_ratio * 100
@@ -111,6 +157,10 @@ class TXTComparator:
         prod_chars = self._precalc_prod_chars
         dev_words = self._precalc_dev_words
         prod_words = self._precalc_prod_words
+        
+        # Calculate total lines from pages
+        dev_total_lines = sum(len(page_diff['dev_lines']) for page_diff in self.page_diffs)
+        prod_total_lines = sum(len(page_diff['prod_lines']) for page_diff in self.page_diffs)
         
         analytics = {
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -121,10 +171,15 @@ class TXTComparator:
             'similarity_ratio': similarity_ratio,
             'similarity_percent': int(similarity),
             'difference_percent': int(100 - similarity),
+            'total_pages': {
+                'dev': self.dev_page_count,
+                'prod': self.prod_page_count,
+                'max': max(self.dev_page_count, self.prod_page_count)
+            },
             'total_lines': {
-                'dev': self.dev_line_count,
-                'prod': self.prod_line_count,
-                'max': max(self.dev_line_count, self.prod_line_count)
+                'dev': dev_total_lines,
+                'prod': prod_total_lines,
+                'max': max(dev_total_lines, prod_total_lines)
             },
             'changes': {
                 'added': total_added,
@@ -147,7 +202,7 @@ class TXTComparator:
         return analytics
     
     def generate_html_report(self) -> str:
-        """Generate professional HTML report with left-right page comparison."""
+        """Generate professional HTML report with page-by-page comparison."""
         
         a = self.analytics
         
@@ -504,6 +559,12 @@ class TXTComparator:
                 </div>
                 
                 <div class="metric-card">
+                    <div class="metric-label">Total Pages</div>
+                    <div class="metric-value" style="color: #6c757d;">{a['total_pages']['max']}</div>
+                    <div class="metric-subvalue">Dev: {a['total_pages']['dev']} | Prod: {a['total_pages']['prod']}</div>
+                </div>
+                
+                <div class="metric-card">
                     <div class="metric-label">Total Lines</div>
                     <div class="metric-value" style="color: #6c757d;">{a['total_lines']['max']}</div>
                     <div class="metric-subvalue">Dev: {a['total_lines']['dev']} | Prod: {a['total_lines']['prod']}</div>
@@ -558,6 +619,10 @@ class TXTComparator:
                         <span class="file-value">{a['dev_size'] / 1024:.2f} KB</span>
                     </div>
                     <div class="file-detail">
+                        <span class="file-label">Pages:</span>
+                        <span class="file-value">{a['total_pages']['dev']}</span>
+                    </div>
+                    <div class="file-detail">
                         <span class="file-label">Lines:</span>
                         <span class="file-value">{a['total_lines']['dev']}</span>
                     </div>
@@ -572,6 +637,10 @@ class TXTComparator:
                     <div class="file-detail">
                         <span class="file-label">File Size:</span>
                         <span class="file-value">{a['prod_size'] / 1024:.2f} KB</span>
+                    </div>
+                    <div class="file-detail">
+                        <span class="file-label">Pages:</span>
+                        <span class="file-value">{a['total_pages']['prod']}</span>
                     </div>
                     <div class="file-detail">
                         <span class="file-label">Lines:</span>
@@ -596,73 +665,73 @@ class TXTComparator:
             </div>
         </div>
         
-        <div class="pages-container">
+        <div class="pages-container">""")
+        
+        # Generate page comparisons in chunks
+        print(f"      Generating HTML report...", end='', flush=True)
+        
+        for idx, page_data in enumerate(self.page_diffs):
+            page_num = page_data['page_num']
+            diff = page_data['diff']
+            
+            page_html = f"""
             <div class="page-comparison">
                 <div class="page-header">
-                    📄 File Comparison
+                    📄 Page {page_num}
                 </div>
                 <div class="page-content">
                     <div class="page-column">
                         <h3>Dev TXT</h3>
-                        <div class="content">""")
-        
-        # Generate content in chunks for large files
-        print(f"      Generating HTML content...", end='', flush=True)
-        
-        dev_has_content = self.dev_line_count > 0
-        
-        if dev_has_content:
-            line_count = 0
-            for line in self.diff:
-                if line.startswith('- '):
-                    html_parts.append(f'<div class="line removed">{escape(line[2:])}</div>')
-                elif line.startswith('? '):
-                    continue
-                elif line.startswith('+ '):
-                    continue
-                else:
-                    content = line[2:] if line.startswith('  ') else line
-                    html_parts.append(f'<div class="line">{escape(content)}</div>')
-                
-                line_count += 1
-                if line_count % 1000 == 0:
-                    print(f"\r      Generating HTML content... {line_count}/{len(self.diff)} lines", end='', flush=True)
-        else:
-            html_parts.append('<div class="empty-page">🔭 No content in this file</div>')
-        
-        html_parts.append("""</div>
+                        <div class="content">"""
+            
+            if page_num <= self.dev_page_count and any(line.strip() for line in page_data['dev_lines']):
+                for line in diff:
+                    if line.startswith('- '):
+                        page_html += f'<div class="line removed">{escape(line[2:])}</div>'
+                    elif line.startswith('? '):
+                        continue
+                    elif line.startswith('+ '):
+                        continue
+                    else:
+                        content = line[2:] if line.startswith('  ') else line
+                        page_html += f'<div class="line">{escape(content)}</div>'
+            else:
+                page_html += '<div class="empty-page">🔭 No content on this page</div>'
+            
+            page_html += """</div>
                     </div>
                     <div class="page-column">
                         <h3>Prod TXT</h3>
-                        <div class="content">""")
-        
-        prod_has_content = self.prod_line_count > 0
-        
-        if prod_has_content:
-            line_count = 0
-            for line in self.diff:
-                if line.startswith('+ '):
-                    html_parts.append(f'<div class="line added">{escape(line[2:])}</div>')
-                elif line.startswith('? '):
-                    continue
-                elif line.startswith('- '):
-                    continue
-                else:
-                    content = line[2:] if line.startswith('  ') else line
-                    html_parts.append(f'<div class="line">{escape(content)}</div>')
-                
-                line_count += 1
-                if line_count % 1000 == 0:
-                    print(f"\r      Generating HTML content... {line_count}/{len(self.diff)} lines", end='', flush=True)
-        else:
-            html_parts.append('<div class="empty-page">🔭 No content in this file</div>')
-        
-        print(f"\r      Generating HTML content... Done!     ")
-        
-        html_parts.append("""</div>
+                        <div class="content">"""
+            
+            if page_num <= self.prod_page_count and any(line.strip() for line in page_data['prod_lines']):
+                for line in diff:
+                    if line.startswith('+ '):
+                        page_html += f'<div class="line added">{escape(line[2:])}</div>'
+                    elif line.startswith('? '):
+                        continue
+                    elif line.startswith('- '):
+                        continue
+                    else:
+                        content = line[2:] if line.startswith('  ') else line
+                        page_html += f'<div class="line">{escape(content)}</div>'
+            else:
+                page_html += '<div class="empty-page">🔭 No content on this page</div>'
+            
+            page_html += """</div>
                     </div>
                 </div>
-            </div>
+            </div>"""
+            
+            html_parts.append(page_html)
+            
+            # Progress indicator
+            if (idx + 1) % 10 == 0:
+                print(f"\r      Generating HTML report... {idx + 1}/{len(self.page_diffs)}", end='', flush=True)
+        
+        print(f"\r      Generating HTML report... Done!     ")
+        
+        html_parts.append("""
         </div>
     </div>
 </body>
@@ -681,25 +750,26 @@ class TXTComparator:
         print(f"   Dev:  {self.dev_txt}")
         print(f"   Prod: {self.prod_txt}")
         
-        dev_lines = self.load_file(self.dev_txt)
-        prod_lines = self.load_file(self.prod_txt)
+        print(f"  📖 Extracting text from Dev TXT (page size: {self.page_lines} lines)...")
+        dev_pages = self.load_file_by_pages(self.dev_txt)
+        self.dev_page_count = len(dev_pages)
         
-        self.dev_line_count = len(dev_lines)
-        self.prod_line_count = len(prod_lines)
+        print(f"  📖 Extracting text from Prod TXT (page size: {self.page_lines} lines)...")
+        prod_pages = self.load_file_by_pages(self.prod_txt)
+        self.prod_page_count = len(prod_pages)
         
-        if not dev_lines and not prod_lines:
+        if not dev_pages and not prod_pages:
             print("❌ Failed to load one or both files!")
             return "", {}
         
-        print(f"   ✅ Dev file: {len(dev_lines)} lines loaded")
-        print(f"   ✅ Prod file: {len(prod_lines)} lines loaded")
+        print(f"  ✅ Dev: {self.dev_page_count} pages | Prod: {self.prod_page_count} pages")
         
         print(f"\n🔍 Comparing files...")
-        self.compare_files_streaming(dev_lines, prod_lines)
+        self.compare_pages_streaming(dev_pages, prod_pages)
         
-        # Clear lines from memory
-        del dev_lines
-        del prod_lines
+        # Clear pages from memory
+        del dev_pages
+        del prod_pages
         gc.collect()
         
         print(f"📊 Calculating analytics...")
@@ -739,13 +809,15 @@ class BatchTXTComparator:
     def __init__(self, csv_file: str = "txt_file_mapping.csv", 
                  dev_folder: str = "dev", 
                  prod_folder: str = "prod", 
-                 output_dir: str = "reports"):
+                 output_dir: str = "reports",
+                 page_lines: int = 500):
         
         self.csv_file = Path(csv_file)
         self.dev_folder = Path(dev_folder)
         self.prod_folder = Path(prod_folder)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
+        self.page_lines = page_lines
         
         self.file_mappings = []
         self.missing_files = []
@@ -862,7 +934,7 @@ class BatchTXTComparator:
             print("\n❌ No valid file pairs to compare!")
             return
         
-        print(f"\n🔄 Starting batch comparison of {len(self.file_mappings)} TXT pairs...\n")
+        print(f"\n📄 Starting batch comparison of {len(self.file_mappings)} TXT pairs...\n")
         
         for idx, mapping in enumerate(self.file_mappings, 1):
             print(f"[{idx}/{len(self.file_mappings)}] Comparing:")
@@ -872,7 +944,8 @@ class BatchTXTComparator:
             comparator = TXTComparator(
                 str(mapping['dev_path']), 
                 str(mapping['prod_path']), 
-                str(self.output_dir)
+                str(self.output_dir),
+                page_lines=self.page_lines
             )
             
             report_path, analytics = comparator.compare()
@@ -929,7 +1002,8 @@ def main():
         csv_file="input/mappings/txt_file_mapping.csv",
         dev_folder="input/dev/txt",
         prod_folder="input/prod/txt",
-        output_dir="reports/txt"
+        output_dir="reports/txt",
+        page_lines=80  # 80 lines per page
     )
     
     batch.compare_all()
