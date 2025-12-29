@@ -102,9 +102,8 @@ class TXTComparator:
                 'diff': diff
             })
             
-            # Progress indicator
-            if (page_num + 1) % 10 == 0:
-                print(f"\r      Comparing {max_pages} pages... {page_num + 1}/{max_pages}", end='', flush=True)
+            # Real-time progress indicator - Update EVERY page
+            print(f"\r      Comparing {max_pages} pages... {page_num + 1}/{max_pages}", end='', flush=True)
             
             # Clear memory periodically
             if (page_num + 1) % 100 == 0:
