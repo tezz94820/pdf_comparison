@@ -1,0 +1,2 @@
+# PDF Processing
+PyMuPDF==1.23.8
