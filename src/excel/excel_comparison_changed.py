@@ -61,78 +61,58 @@ class ExcelComparator:
         print(f"      🚀 Multi-threading enabled: {self.max_workers} workers detected")
 
 
-        
     def extract_sheet_data(self, excel_path: Path) -> OrderedDict:
         """
-        Extract data from all sheets, handling merged cells.
-        Returns OrderedDict of {sheet_name: list of pages (each page is list of row strings)}
+        Extremely fast sheet extraction without merged cell handling.
+        Converts each row to a tab-separated string and splits into pages.
         """
         sheets_data = OrderedDict()
-        
+
         try:
+            # Fastest possible openpyxl loading mode
             workbook = openpyxl.load_workbook(excel_path, data_only=True)
-            
-            
+
             for sheet_name in workbook.sheetnames:
                 print(f"      Processing sheet '{sheet_name}'...", end='', flush=True)
                 sheet = workbook[sheet_name]
+
                 all_rows = []
-                
-                # Get merged cell ranges
-                merged_ranges = list(sheet.merged_cells.ranges)
-                
-                # Process each row
-                for row_idx, row in enumerate(sheet.iter_rows(), start=1):
-                    row_data = []
-                    
-                    for col_idx, cell in enumerate(row, start=1):
-                        # Check if this cell is part of a merged range
-                        cell_value = cell.value
-                        
-                        # If cell is merged, get the value from the top-left cell
-                        for merged_range in merged_ranges:
-                            if cell.coordinate in merged_range:
-                                # Get the top-left cell of the merged range
-                                top_left_cell = sheet.cell(
-                                    merged_range.min_row, 
-                                    merged_range.min_col
-                                )
-                                cell_value = top_left_cell.value
-                                break
-                        
-                        # Convert cell value to string
-                        if cell_value is None:
-                            row_data.append("")
-                        elif isinstance(cell_value, (int, float)):
-                            row_data.append(str(cell_value))
+
+                # Iterate through rows only once
+                for row in sheet.iter_rows(values_only=True):
+                    # Convert row tuple to list of string values
+                    row_strings = []
+
+                    for val in row:
+                        if val is None:
+                            row_strings.append("")
                         else:
-                            row_data.append(str(cell_value))
-                    
-                    # Join row data with tabs (to preserve column structure)
-                    row_string = "\t".join(row_data).rstrip("\t")
-                    
-                    # Only add non-empty rows
+                            row_strings.append(str(val))
+
+                    # Build final row string
+                    row_string = "\t".join(row_strings).rstrip("\t")
+
+                    # Add only meaningful rows
                     if row_string.strip():
                         all_rows.append(row_string)
-                
-                # Divide rows into pages
-                pages = []
-                for i in range(0, len(all_rows), self.page_rows):
-                    page = all_rows[i:i + self.page_rows]
-                    pages.append(page)
-                
-                # Store pages for this sheet (empty list if no rows)
+
+                # Split into pages
+                pages = [
+                    all_rows[i:i + self.page_rows]
+                    for i in range(0, len(all_rows), self.page_rows)
+                ]
+
                 sheets_data[sheet_name] = pages if pages else []
                 print(f"\r      Processing sheet '{sheet_name}'... Done! ({len(pages)} pages)")
 
-            
             workbook.close()
-            
+
         except Exception as e:
             print(f"❌ Error extracting data from {excel_path}: {e}")
             return OrderedDict()
-        
+
         return sheets_data
+
     
 
     def compare_sheets_pagewise(self):
